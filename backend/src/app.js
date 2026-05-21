@@ -24,10 +24,8 @@ const start = async () => {
   try {
     await sequelize.authenticate();
     console.log('DB conectada');
-    if (process.env.NODE_ENV === 'development') {
-      await sequelize.sync({ alter: true });
-      console.log('Modelos sincronizados');
-    }
+    await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
+    console.log('Modelos sincronizados');
     app.listen(PORT, () => console.log(`Servidor en http://localhost:${PORT}`));
   } catch (e) {
     console.error('Error al iniciar:', e);
