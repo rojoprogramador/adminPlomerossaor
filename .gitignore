@@ -1,0 +1,20 @@
+# Secretos — NUNCA subir al repo
+.env
+backend/.env
+frontend/.env.local
+frontend/.env*.local
+
+# Claude Code config local
+.claude/
+
+# Dependencias
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+frontend/.next/
+
+# Build
+frontend/out/
+
+# Logs
+*.log
