@@ -181,7 +181,7 @@ function CierreMensual() {
                 <div className="border-t border-slate-100 pt-1 flex justify-between"><span className="text-slate-800 font-medium">Utilidad Empresa:</span><span className="font-bold text-green-700">{formatCurrency(t?.utilidad_empresa)}</span></div>
               </div>
             </div>
-            
+
             <div className="rounded-xl bg-white border border-slate-200 p-4 col-span-1 md:col-span-2">
                <p className="text-sm font-medium text-slate-500 mb-2">Visitas y Otros</p>
                <div className="flex gap-4">
@@ -196,6 +196,27 @@ function CierreMensual() {
                </div>
             </div>
           </div>
+
+          {/* Por técnico */}
+          {data.por_tecnico?.length > 0 && (
+            <div className="rounded-xl bg-white border border-slate-200 p-5">
+              <p className="font-semibold text-slate-800 mb-3">Por Técnico</p>
+              <div className="space-y-2">
+                {(data.por_tecnico as { tecnico: { id: string; nombre: string }; cantidad: number; bruto: number; costos: number; a_pagar: number; monto_empresa: number }[]).map(r => (
+                  <div key={r.tecnico.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-2.5">
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">{r.tecnico.nombre}</p>
+                      <p className="text-xs text-slate-500">{r.cantidad} servicios{r.costos > 0 ? ` · Costos: ${formatCurrency(r.costos)}` : ''}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-green-700">Ganó: {formatCurrency(r.a_pagar)}</p>
+                      <p className="text-xs text-blue-600">Empresa: {formatCurrency(r.monto_empresa)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
       {isLoading && <p className="text-sm text-slate-400">Cargando...</p>}

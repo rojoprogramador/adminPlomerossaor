@@ -204,6 +204,24 @@ const cierreMensual = async (req, res) => {
       .filter(s => s.garantia)
       .map(s => ({ servicio_id: s.id, tecnico: s.tecnico, fecha_vence: s.garantia.fecha_vence }));
 
+    // Por técnico
+    const porTecnicoMap = {};
+    completados.forEach(s => {
+      const p = s.pago_tecnico;
+      if (!p) return;
+      const tid = s.tecnico_id;
+      if (!porTecnicoMap[tid]) porTecnicoMap[tid] = {
+        tecnico: s.tecnico, cantidad: 0,
+        bruto: 0, costos: 0, neto: 0, a_pagar: 0, monto_empresa: 0,
+      };
+      porTecnicoMap[tid].cantidad++;
+      porTecnicoMap[tid].bruto         += parseFloat(p.valor_bruto)      || 0;
+      porTecnicoMap[tid].costos        += (parseFloat(p.costo_materiales) || 0) + (parseFloat(p.costo_herramienta) || 0);
+      porTecnicoMap[tid].neto          += parseFloat(p.valor_neto)       || 0;
+      porTecnicoMap[tid].a_pagar       += parseFloat(p.monto_tecnico)    || 0;
+      porTecnicoMap[tid].monto_empresa += parseFloat(p.monto_empresa)    || 0;
+    });
+
     return ok(res, {
       periodo: { mes, anio, desde: fechaDesdeStr, hasta: fechaHastaStr },
       resumen: {
@@ -213,6 +231,7 @@ const cierreMensual = async (req, res) => {
         visitas_sin_convertir: visitas_no_convertidas.length,
       },
       totales,
+      por_tecnico:       Object.values(porTecnicoMap),
       deudas_generadas,
       garantias_activadas,
     });
