@@ -20,7 +20,6 @@ const navAdmin = [
   { href: '/gastos',         label: 'Gastos',             icon: TrendingDown },
 ];
 
-// Agente SC: solo atención al cliente, sin datos financieros internos
 const navAgente = [
   { href: '/servicios',    label: 'Servicios',   icon: Wrench },
   { href: '/garantias',    label: 'Garantías',   icon: Shield },
@@ -43,7 +42,12 @@ const navSuperadmin = [
   { href: '/usuarios',       label: 'Usuarios',           icon: UserCog },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  readonly open: boolean;
+  readonly onClose: () => void;
+}
+
+export default function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const isSuperadmin = user?.rol === 'superadmin';
@@ -53,7 +57,7 @@ export default function Sidebar() {
     const Icon = item.icon;
     const active = pathname === item.href || pathname.startsWith(item.href + '/');
     return (
-      <Link key={item.href} href={item.href}
+      <Link key={item.href} href={item.href} onClick={onClose}
         className={cn(
           'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
           active ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -67,7 +71,11 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="flex h-screen w-60 flex-col border-r border-slate-200 bg-white">
+    <aside className={cn(
+      'fixed inset-y-0 left-0 z-50 flex h-screen w-60 flex-col border-r border-slate-200 bg-white transition-transform duration-200',
+      'lg:static lg:z-auto lg:translate-x-0',
+      open ? 'translate-x-0' : '-translate-x-full'
+    )}>
       {/* logo */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-slate-100">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
