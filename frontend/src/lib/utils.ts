@@ -38,6 +38,12 @@ export const firstDayOfMonth = (): string => {
   return local.slice(0, 7) + '-01';
 };
 
+export const daysAgo = (n: number): string => {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(d);
+};
+
 export const diasRestantes = (fechaVence?: string): number => {
   if (!fechaVence) return 0;
   try {

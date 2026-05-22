@@ -80,7 +80,7 @@ const dashboard = async (req, res) => {
     });
 
     return ok(res, {
-      periodo: { desde: fechaDesde, hasta: fechaHasta },
+      periodo: { desde: fechaDesdeStr, hasta: fechaHastaStr },
       totales,
       por_tecnico:       Object.values(por_tecnico),
       por_tipo_servicio: Object.values(por_tipo),

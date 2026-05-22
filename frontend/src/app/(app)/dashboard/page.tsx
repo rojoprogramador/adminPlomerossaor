@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import { formatCurrency, firstDayOfMonth, today } from '@/lib/utils';
+import { formatCurrency, daysAgo, today } from '@/lib/utils';
 import { StatCard } from '@/components/ui/Card';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useAuth } from '@/lib/auth';
@@ -19,7 +19,7 @@ export default function DashboardPage() {
       router.replace('/servicios');
     }
   }, [user, router]);
-  const [desde, setDesde] = useState(firstDayOfMonth());
+  const [desde, setDesde] = useState(daysAgo(60));
   const [hasta, setHasta] = useState(today());
 
   const { data, isLoading } = useQuery({
