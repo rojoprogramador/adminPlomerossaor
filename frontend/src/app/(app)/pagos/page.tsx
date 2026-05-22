@@ -34,10 +34,14 @@ function PagosTecnicos() {
   const [selected, setSelected] = useState<PagoTecnico | null>(null);
   const [descuento, setDescuento] = useState('');
   const [error, setError] = useState('');
+  const [filtro, setFiltro] = useState<'pendiente' | 'entregado' | ''>('pendiente');
 
   const { data: pagos = [], isLoading } = useQuery<PagoTecnico[]>({
-    queryKey: ['pagos-tecnicos'],
-    queryFn: () => api.get('/pagos/tecnicos?estado_entrega=pendiente').then(r => r.data),
+    queryKey: ['pagos-tecnicos', filtro],
+    queryFn: () => {
+      const qs = filtro ? `?estado_entrega=${filtro}` : '';
+      return api.get(`/pagos/tecnicos${qs}`).then(r => r.data);
+    },
   });
 
   const entregar = useMutation({
@@ -78,7 +82,16 @@ function PagosTecnicos() {
 
   return (
     <>
-      <Table columns={columns} data={pagos} loading={isLoading} keyExtractor={p => p.id} emptyMessage="Sin pagos pendientes" />
+      <div className="flex items-center gap-2">
+        <label htmlFor="filtro-pagos" className="text-sm font-medium text-slate-600">Mostrar:</label>
+        <select id="filtro-pagos" value={filtro} onChange={e => setFiltro(e.target.value as typeof filtro)}
+          className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+          <option value="pendiente">Pendientes de entrega</option>
+          <option value="">Todos</option>
+          <option value="entregado">Entregados</option>
+        </select>
+      </div>
+      <Table columns={columns} data={pagos} loading={isLoading} keyExtractor={p => p.id} emptyMessage="Sin registros" />
       <Modal open={!!selected} onClose={() => setSelected(null)} title="Entregar Pago" size="sm">
         <div className="space-y-4">
           {selected && (

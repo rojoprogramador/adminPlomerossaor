@@ -14,14 +14,15 @@ const dashboard = async (req, res) => {
     const { desde, hasta, ciudad_id } = req.query;
 
     const nowBogota = new Date().toLocaleString('en-CA', { timeZone: 'America/Bogota' }).split(',')[0];
-    // Usar fecha (DATEONLY) para coherencia con cierre-dia y evitar discrepancias de timezone
-    const fechaDesdeStr = desde || (nowBogota.slice(0, 7) + '-01');
-    const fechaHastaStr = hasta || nowBogota;
+    const fechaDesde = desde ? new Date(desde + 'T00:00:00-05:00') : new Date(nowBogota.slice(0, 7) + '-01T00:00:00-05:00');
+    const fechaHasta = hasta ? new Date(hasta + 'T23:59:59-05:00') : new Date(nowBogota + 'T23:59:59-05:00');
+    const fechaDesdeStr = fechaDesde.toISOString().split('T')[0];
+    const fechaHastaStr = fechaHasta.toISOString().split('T')[0];
 
     const whereServicio = {
       empresa_id,
       estado: { [Op.in]: ['completado', 'convertida'] },
-      fecha: { [Op.between]: [fechaDesdeStr, fechaHastaStr] },
+      fecha_completado: { [Op.between]: [fechaDesde, fechaHasta] },
     };
     if (ciudad_id) whereServicio.ciudad_id = ciudad_id;
 
