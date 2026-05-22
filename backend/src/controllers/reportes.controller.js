@@ -165,36 +165,47 @@ const cierreMensual = async (req, res) => {
     const fechaDesdeStr = `${anio}-${String(mes).padStart(2, '0')}-01`;
     const fechaHastaStr = `${anio}-${String(mes).padStart(2, '0')}-${ultimoDia}`;
 
-    const servicios = await Servicio.findAll({
-      where: { 
-        empresa_id, 
-        fecha: { [Op.between]: [fechaDesdeStr, fechaHastaStr] } 
-      },
-      include: [
-        { model: Tecnico,      as: 'tecnico',      attributes: ['id', 'nombre'] },
-        { model: TipoServicio, as: 'tipo_servicio', attributes: ['id', 'nombre', 'categoria'] },
-        { model: Ciudad,       as: 'ciudad',        attributes: ['id', 'nombre'] },
-        { model: PagoTecnico,  as: 'pago_tecnico' },
-        { model: DeudaTecnico, as: 'deuda' },
-        { model: Garantia,     as: 'garantia',      attributes: ['id', 'estado', 'fecha_vence'] },
-      ],
-      order: [['fecha', 'ASC'], ['created_at', 'ASC']],
-    });
+    const [servicios, gastosDelMes] = await Promise.all([
+      Servicio.findAll({
+        where: {
+          empresa_id,
+          fecha: { [Op.between]: [fechaDesdeStr, fechaHastaStr] },
+        },
+        include: [
+          { model: Tecnico,      as: 'tecnico',      attributes: ['id', 'nombre'] },
+          { model: TipoServicio, as: 'tipo_servicio', attributes: ['id', 'nombre', 'categoria'] },
+          { model: Ciudad,       as: 'ciudad',        attributes: ['id', 'nombre'] },
+          { model: PagoTecnico,  as: 'pago_tecnico' },
+          { model: DeudaTecnico, as: 'deuda' },
+          { model: Garantia,     as: 'garantia',      attributes: ['id', 'estado', 'fecha_vence'] },
+        ],
+        order: [['fecha', 'ASC'], ['created_at', 'ASC']],
+      }),
+      Gasto.findAll({
+        where: { empresa_id, fecha: { [Op.between]: [fechaDesdeStr, fechaHastaStr] } },
+      }),
+    ]);
 
-    const completados          = servicios.filter(s => ['completado', 'convertida'].includes(s.estado));
-    const pendientes           = servicios.filter(s => ['pendiente', 'en_progreso'].includes(s.estado));
+    // 'convertida' = visita resuelta sin pago propio; solo 'completado' genera PagoTecnico
+    const completados            = servicios.filter(s => s.estado === 'completado');
+    const visitas_convertidas    = servicios.filter(s => s.estado === 'convertida');
+    const pendientes             = servicios.filter(s => ['pendiente', 'en_progreso'].includes(s.estado));
     const visitas_no_convertidas = servicios.filter(s => s.es_visita && !['convertida', 'cancelado'].includes(s.estado));
 
     const totales = completados.reduce((acc, s) => {
       const p = s.pago_tecnico;
       if (!p) return acc;
-      acc.bruto           += parseFloat(p.valor_bruto)    || 0;
-      acc.costos          += (parseFloat(p.costo_materiales) || 0) + (parseFloat(p.costo_herramienta) || 0);
-      acc.neto            += parseFloat(p.valor_neto)     || 0;
-      acc.nomina_tecnicos += parseFloat(p.monto_tecnico)  || 0;
-      acc.utilidad_empresa += parseFloat(p.monto_empresa) || 0;
+      acc.bruto            += parseFloat(p.valor_bruto)    || 0;
+      acc.costos           += (parseFloat(p.costo_materiales) || 0) + (parseFloat(p.costo_herramienta) || 0);
+      acc.neto             += parseFloat(p.valor_neto)     || 0;
+      acc.nomina_tecnicos  += parseFloat(p.monto_tecnico)  || 0;
+      acc.utilidad_empresa += parseFloat(p.monto_empresa)  || 0;
       return acc;
     }, { bruto: 0, costos: 0, neto: 0, nomina_tecnicos: 0, utilidad_empresa: 0 });
+
+    const gastos_operacionales = gastosDelMes.reduce((sum, g) => sum + (parseFloat(g.monto) || 0), 0);
+    totales.gastos_operacionales = gastos_operacionales;
+    totales.utilidad_neta        = totales.utilidad_empresa - gastos_operacionales;
 
     const deudas_generadas = completados
       .filter(s => s.deuda)
@@ -204,7 +215,7 @@ const cierreMensual = async (req, res) => {
       .filter(s => s.garantia)
       .map(s => ({ servicio_id: s.id, tecnico: s.tecnico, fecha_vence: s.garantia.fecha_vence }));
 
-    // Por técnico
+    // Por técnico (solo completados con pago real)
     const porTecnicoMap = {};
     completados.forEach(s => {
       const p = s.pago_tecnico;
@@ -225,9 +236,10 @@ const cierreMensual = async (req, res) => {
     return ok(res, {
       periodo: { mes, anio, desde: fechaDesdeStr, hasta: fechaHastaStr },
       resumen: {
-        total_servicios:   servicios.length,
-        completados:       completados.length,
-        pendientes:        pendientes.length,
+        total_servicios:      servicios.length,
+        completados:          completados.length,
+        visitas_convertidas:  visitas_convertidas.length,
+        pendientes:           pendientes.length,
         visitas_sin_convertir: visitas_no_convertidas.length,
       },
       totales,

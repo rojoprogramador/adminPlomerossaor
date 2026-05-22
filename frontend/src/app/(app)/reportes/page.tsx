@@ -167,7 +167,7 @@ function CierreMensual() {
             <StatCard label="Completados" value={data.resumen?.completados ?? 0} color="green" />
             <StatCard label="Pendientes" value={data.resumen?.pendientes ?? 0} color="yellow" />
             <StatCard label="Bruto" value={formatCurrency(t?.bruto)} color="green" />
-            <StatCard label="Utilidad" value={formatCurrency(t?.utilidad_empresa)} color="purple" />
+            <StatCard label="Utilidad Neta" value={formatCurrency(t?.utilidad_neta)} color="purple" />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -178,20 +178,26 @@ function CierreMensual() {
                 <div className="flex justify-between"><span className="text-slate-600">Costos (Mat/Herr):</span><span className="font-semibold text-red-600">- {formatCurrency(t?.costos)}</span></div>
                 <div className="border-t border-slate-100 pt-1 flex justify-between"><span className="text-slate-600">Neto:</span><span className="font-semibold text-slate-800">{formatCurrency(t?.neto)}</span></div>
                 <div className="flex justify-between"><span className="text-slate-600">Nómina Técnicos:</span><span className="font-semibold text-orange-600">- {formatCurrency(t?.nomina_tecnicos)}</span></div>
-                <div className="border-t border-slate-100 pt-1 flex justify-between"><span className="text-slate-800 font-medium">Utilidad Empresa:</span><span className="font-bold text-green-700">{formatCurrency(t?.utilidad_empresa)}</span></div>
+                <div className="border-t border-slate-100 pt-1 flex justify-between"><span className="text-slate-600">Utilidad Empresa:</span><span className="font-semibold text-slate-800">{formatCurrency(t?.utilidad_empresa)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-600">Gastos Operac.:</span><span className="font-semibold text-red-600">- {formatCurrency(t?.gastos_operacionales ?? 0)}</span></div>
+                <div className="border-t border-slate-100 pt-1 flex justify-between"><span className="text-slate-800 font-medium">Utilidad Neta:</span><span className="font-bold text-green-700">{formatCurrency(t?.utilidad_neta)}</span></div>
               </div>
             </div>
 
             <div className="rounded-xl bg-white border border-slate-200 p-4 col-span-1 md:col-span-2">
                <p className="text-sm font-medium text-slate-500 mb-2">Visitas y Otros</p>
-               <div className="flex gap-4">
+               <div className="flex gap-4 flex-wrap">
                   <div className="bg-slate-50 p-3 rounded-lg flex-1">
                     <p className="text-xs text-slate-500">Visitas sin convertir</p>
-                    <p className="text-lg font-semibold text-slate-800">{data.resumen?.visitas_sin_convertir}</p>
+                    <p className="text-lg font-semibold text-slate-800">{data.resumen?.visitas_sin_convertir ?? 0}</p>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-lg flex-1">
+                    <p className="text-xs text-slate-500">Visitas convertidas</p>
+                    <p className="text-lg font-semibold text-slate-800">{data.resumen?.visitas_convertidas ?? 0}</p>
                   </div>
                   <div className="bg-slate-50 p-3 rounded-lg flex-1">
                     <p className="text-xs text-slate-500">Deudas generadas</p>
-                    <p className="text-lg font-semibold text-slate-800">{data.deudas_generadas?.length}</p>
+                    <p className="text-lg font-semibold text-slate-800">{data.deudas_generadas?.length ?? 0}</p>
                   </div>
                </div>
             </div>
