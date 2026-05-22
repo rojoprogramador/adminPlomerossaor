@@ -2,21 +2,28 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { formatCurrency, formatDate, firstDayOfMonth, today } from '@/lib/utils';
+import { formatCurrency, firstDayOfMonth, today } from '@/lib/utils';
 import { StatCard } from '@/components/ui/Card';
 import Badge, { estadoBadgeColor } from '@/components/ui/Badge';
+import SearchSelect from '@/components/ui/SearchSelect';
 import { Download } from 'lucide-react';
+import { useAuth } from '@/lib/auth';
+import { Tecnico } from '@/types';
 
 type Tab = 'cierre' | 'cierre_mensual' | 'nomina' | 'garantias';
 
 export default function ReportesPage() {
+  const { user } = useAuth();
+  const isAgente = user?.rol === 'agente_sc';
   const [tab, setTab] = useState<Tab>('cierre');
-  const tabs: { key: Tab; label: string }[] = [
+
+  const allTabs: { key: Tab; label: string; adminOnly?: boolean }[] = [
     { key: 'cierre',         label: 'Cierre del Día' },
-    { key: 'cierre_mensual', label: 'Cierre Mensual' },
-    { key: 'nomina',         label: 'Nómina Mensual' },
-    { key: 'garantias', label: 'Garantías por Técnico' },
+    { key: 'cierre_mensual', label: 'Cierre Mensual', adminOnly: true },
+    { key: 'nomina',         label: 'Nómina Mensual', adminOnly: true },
+    { key: 'garantias',      label: 'Garantías por Técnico' },
   ];
+  const tabs = isAgente ? allTabs.filter(t => !t.adminOnly) : allTabs;
 
   return (
     <div className="space-y-4">
@@ -37,15 +44,26 @@ export default function ReportesPage() {
 }
 
 function CierreDia() {
-  const [fecha, setFecha] = useState(today());
+  const [fecha,      setFecha]     = useState(today());
+  const [tecnicoId,  setTecnicoId] = useState('');
+
+  const { data: tecnicos = [] } = useQuery<Tecnico[]>({
+    queryKey: ['tecnicos-activos'],
+    queryFn: () => api.get('/tecnicos?activo=true').then(r => r.data),
+  });
+
+  const params = new URLSearchParams({ fecha });
+  if (tecnicoId) params.set('tecnico_id', tecnicoId);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['cierre-dia', fecha],
-    queryFn: () => api.get(`/reportes/cierre-dia?fecha=${fecha}`).then(r => r.data),
+    queryKey: ['cierre-dia', fecha, tecnicoId],
+    queryFn: () => api.get(`/reportes/cierre-dia?${params}`).then(r => r.data),
   });
 
   const exportar = async () => {
-    const resp = await api.get(`/reportes/exportar-excel?desde=${fecha}&hasta=${fecha}`, { responseType: 'blob' });
+    const exParams = new URLSearchParams({ desde: fecha, hasta: fecha });
+    if (tecnicoId) exParams.set('tecnico_id', tecnicoId);
+    const resp = await api.get(`/reportes/exportar-excel?${exParams}`, { responseType: 'blob' });
     const url  = URL.createObjectURL(resp.data);
     const a    = document.createElement('a');
     a.href     = url;
@@ -61,6 +79,12 @@ function CierreDia() {
       <div className="flex items-center gap-3 flex-wrap">
         <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
           className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+        <SearchSelect
+          value={tecnicoId}
+          onChange={v => setTecnicoId(v)}
+          options={tecnicos.map(t => ({ value: t.id, label: t.nombre }))}
+          placeholder="Todos los técnicos"
+        />
         <button onClick={exportar} className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white hover:bg-slate-50 transition-colors">
           <Download size={14} /> Exportar Excel
         </button>
@@ -84,15 +108,14 @@ function CierreDia() {
               <table className="min-w-full text-sm divide-y divide-slate-50">
                 <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
                   <tr>
-                    {['#', 'Técnico', 'Tipo', 'Cliente', 'Valor', 'Medio', 'Estado'].map(h => (
+                    {['Técnico', 'Tipo', 'Cliente', 'Valor', 'Medio', 'Estado'].map(h => (
                       <th key={h} className="px-4 py-2 text-left font-semibold tracking-wide">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {data.detalle.map((s: { id: number; tecnico?: { nombre: string }; tipo_servicio?: { nombre: string }; nombre_cliente_anon?: string; valor?: number; medio_pago?: string; estado: string }) => (
+                  {data.detalle.map((s: { id: string; tecnico?: { nombre: string }; tipo_servicio?: { nombre: string }; nombre_cliente_anon?: string; valor?: number; medio_pago?: string; estado: string }) => (
                     <tr key={s.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-2 text-slate-500">{s.id}</td>
                       <td className="px-4 py-2 font-medium">{s.tecnico?.nombre}</td>
                       <td className="px-4 py-2">{s.tipo_servicio?.nombre}</td>
                       <td className="px-4 py-2">{s.nombre_cliente_anon || '—'}</td>

@@ -14,15 +14,14 @@ const dashboard = async (req, res) => {
     const { desde, hasta, ciudad_id } = req.query;
 
     const nowBogota = new Date().toLocaleString('en-CA', { timeZone: 'America/Bogota' }).split(',')[0];
-    const fechaDesde = desde ? new Date(desde + 'T00:00:00-05:00') : new Date(nowBogota.slice(0, 7) + '-01T00:00:00-05:00');
-    const fechaHasta = hasta ? new Date(hasta + 'T23:59:59-05:00') : new Date(nowBogota + 'T23:59:59-05:00');
-    const fechaDesdeStr = fechaDesde.toISOString().split('T')[0];
-    const fechaHastaStr = fechaHasta.toISOString().split('T')[0];
+    // Usar fecha (DATEONLY) para coherencia con cierre-dia y evitar discrepancias de timezone
+    const fechaDesdeStr = desde || (nowBogota.slice(0, 7) + '-01');
+    const fechaHastaStr = hasta || nowBogota;
 
-    const whereServicio = { 
-      empresa_id, 
-      estado: { [Op.in]: ['completado', 'convertida'] }, 
-      fecha_completado: { [Op.between]: [fechaDesde, fechaHasta] } 
+    const whereServicio = {
+      empresa_id,
+      estado: { [Op.in]: ['completado', 'convertida'] },
+      fecha: { [Op.between]: [fechaDesdeStr, fechaHastaStr] },
     };
     if (ciudad_id) whereServicio.ciudad_id = ciudad_id;
 
@@ -91,14 +90,16 @@ const dashboard = async (req, res) => {
 };
 
 // ── CIERRE DEL DÍA ────────────────────────────────────────────────────────────
-// GET /api/reportes/cierre-dia?fecha=YYYY-MM-DD
+// GET /api/reportes/cierre-dia?fecha=YYYY-MM-DD&tecnico_id=
 const cierreDia = async (req, res) => {
   try {
     const empresa_id = req.usuario.empresa_id;
-    const fecha = req.query.fecha || new Date().toLocaleString('en-CA', { timeZone: 'America/Bogota' }).split(',')[0];
+    const fecha      = req.query.fecha || new Date().toLocaleString('en-CA', { timeZone: 'America/Bogota' }).split(',')[0];
+    const where      = { empresa_id, fecha };
+    if (req.query.tecnico_id) where.tecnico_id = req.query.tecnico_id;
 
     const servicios = await Servicio.findAll({
-      where: { empresa_id, fecha },
+      where,
       include: [
         { model: Tecnico,      as: 'tecnico',      attributes: ['id', 'nombre'] },
         { model: TipoServicio, as: 'tipo_servicio', attributes: ['id', 'nombre', 'categoria'] },

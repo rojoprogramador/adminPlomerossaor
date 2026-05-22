@@ -6,7 +6,7 @@ const ctrl   = require('../controllers/pagos.controller');
 router.use(auth);
 
 // Pagos técnicos
-router.get('/tecnicos',              isAdminOrAgente, ctrl.listarTecnicos);
+router.get('/tecnicos',              isAdmin,         ctrl.listarTecnicos);
 router.patch('/tecnicos/:id/entregar', isAdmin,       ctrl.entregarPago);
 
 // Pagos agente SC

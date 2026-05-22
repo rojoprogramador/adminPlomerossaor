@@ -78,7 +78,8 @@ const crear = async (req, res) => {
       valor, tiene_materiales, costo_materiales, descripcion_materiales,
       tiene_herramienta, costo_herramienta, descripcion_herramienta,
       tecnico_recibe_total, porcentaje_tecnico_override,
-      medio_pago, efectivo_entregado, estado, motivo_pendiente, documento_requerido, observaciones,
+      medio_pago, efectivo_entregado, empresa_debe_tecnico,
+      estado, motivo_pendiente, documento_requerido, observaciones,
     } = req.body;
 
     if (!tecnico_id)       return err(res, 'El técnico es requerido');
@@ -115,7 +116,8 @@ const crear = async (req, res) => {
       tecnico_recibe_total:    !!tecnico_recibe_total,
       porcentaje_tecnico_override,
       medio_pago,
-      efectivo_entregado: !!efectivo_entregado,
+      efectivo_entregado:   !!efectivo_entregado,
+      empresa_debe_tecnico: !efectivo_entregado && !!empresa_debe_tecnico,
       estado:          completado ? ESTADO_SERVICIO.COMPLETADO : (estado || ESTADO_SERVICIO.PENDIENTE),
       fecha_completado: completado ? new Date() : null,
       motivo_pendiente, documento_requerido, observaciones,
@@ -194,16 +196,17 @@ const completar = async (req, res) => {
     if (!servicio) { await t.rollback(); return err(res, 'Servicio no encontrado', 404); }
     if (servicio.estado === ESTADO_SERVICIO.COMPLETADO) { await t.rollback(); return err(res, 'El servicio ya está completado'); }
 
-    const { valor, medio_pago, efectivo_entregado } = req.body;
+    const { valor, medio_pago, efectivo_entregado, empresa_debe_tecnico } = req.body;
     if (!valor)      { await t.rollback(); return err(res, 'El valor cobrado es requerido'); }
     if (!medio_pago) { await t.rollback(); return err(res, 'El medio de pago es requerido'); }
 
     const v = validarCostos({ ...servicio.toJSON(), valor });
     if (!v.valido) { await t.rollback(); return err(res, v.mensaje); }
 
-    servicio.valor              = valor;
-    servicio.medio_pago         = medio_pago;
-    servicio.efectivo_entregado = !!efectivo_entregado;
+    servicio.valor                = valor;
+    servicio.medio_pago           = medio_pago;
+    servicio.efectivo_entregado   = !!efectivo_entregado;
+    servicio.empresa_debe_tecnico = medio_pago !== 'efectivo' && !!empresa_debe_tecnico;
     servicio.estado             = ESTADO_SERVICIO.COMPLETADO;
     servicio.fecha_completado   = new Date();
     if (req.body.motivo_pendiente !== undefined) servicio.motivo_pendiente = null;
@@ -243,10 +246,13 @@ const convertir = async (req, res) => {
     const empresa_id = req.usuario.empresa_id;
     const visita = await Servicio.findOne({ where: { id: req.params.id, empresa_id, es_visita: true }, transaction: t });
     if (!visita) { await t.rollback(); return err(res, 'Visita no encontrada', 404); }
-    if (visita.estado === ESTADO_SERVICIO.CONVERTIDA) { await t.rollback(); return err(res, 'Esta visita ya fue convertida'); }
+    if (visita.estado === ESTADO_SERVICIO.CONVERTIDA)  { await t.rollback(); return err(res, 'Esta visita ya fue convertida'); }
+    if (visita.estado === ESTADO_SERVICIO.COMPLETADO)  { await t.rollback(); return err(res, 'Esta visita ya fue completada. No se puede convertir para evitar doble conteo de pagos'); }
+    if (visita.estado === ESTADO_SERVICIO.CANCELADO)   { await t.rollback(); return err(res, 'No se puede convertir una visita cancelada'); }
 
     const { tecnico_id, tipo_servicio_id, ciudad_id, fecha, hora, valor, medio_pago, observaciones,
-            tiene_materiales, costo_materiales, tiene_herramienta, costo_herramienta } = req.body;
+            tiene_materiales, costo_materiales, tiene_herramienta, costo_herramienta,
+            empresa_debe_tecnico } = req.body;
 
     const completado = !!(valor && medio_pago);
     const nuevoServicio = await Servicio.create({
@@ -266,6 +272,7 @@ const convertir = async (req, res) => {
       valor, medio_pago, observaciones,
       tiene_materiales: !!tiene_materiales, costo_materiales:  tiene_materiales  ? (costo_materiales  || 0) : 0,
       tiene_herramienta: !!tiene_herramienta, costo_herramienta: tiene_herramienta ? (costo_herramienta || 0) : 0,
+      empresa_debe_tecnico: completado && medio_pago !== 'efectivo' && !!empresa_debe_tecnico,
       estado:           completado ? ESTADO_SERVICIO.COMPLETADO : ESTADO_SERVICIO.PENDIENTE,
       fecha_completado: completado ? new Date() : null,
     }, { transaction: t });

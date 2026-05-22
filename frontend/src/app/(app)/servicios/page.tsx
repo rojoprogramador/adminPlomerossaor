@@ -66,11 +66,13 @@ function calcularLiquidacion({
 }
 
 // ─── Panel de liquidación ────────────────────────────────────────────────────
-function PanelLiquidacion({ liq, medio_pago, efectivo_entregado, onEntregadoChange }: {
+function PanelLiquidacion({ liq, medio_pago, efectivo_entregado, empresa_debe_tecnico, onEntregadoChange, onEmpresaDebeChange }: {
   liq: Liquidacion | null;
   medio_pago: string;
   efectivo_entregado: boolean;
+  empresa_debe_tecnico: boolean;
   onEntregadoChange: (v: boolean) => void;
+  onEmpresaDebeChange: (v: boolean) => void;
 }) {
   if (!liq) return null;
 
@@ -101,7 +103,7 @@ function PanelLiquidacion({ liq, medio_pago, efectivo_entregado, onEntregadoChan
     );
   }
 
-  const deduccion = liq.bruto - liq.neto;
+  const deduccion  = liq.bruto - liq.neto;
   const esEfectivo = medio_pago === 'efectivo';
   const conDeuda   = esEfectivo && liq.monto_empresa > 0 && !efectivo_entregado;
 
@@ -130,13 +132,17 @@ function PanelLiquidacion({ liq, medio_pago, efectivo_entregado, onEntregadoChan
       {esEfectivo && liq.monto_empresa > 0 && (
         <div className="border-t border-slate-200 pt-2">
           <label className="flex items-center gap-2 cursor-pointer text-slate-700">
-            <input
-              type="checkbox"
-              checked={efectivo_entregado}
-              onChange={e => onEntregadoChange(e.target.checked)}
-              className="rounded"
-            />
+            <input type="checkbox" checked={efectivo_entregado} onChange={e => onEntregadoChange(e.target.checked)} className="rounded" />
             <span className="text-xs font-medium">Técnico entregó los {formatCurrency(liq.monto_empresa)} a la empresa ahora</span>
+          </label>
+        </div>
+      )}
+
+      {!esEfectivo && liq.monto_tecnico > 0 && (
+        <div className="border-t border-slate-200 pt-2">
+          <label className="flex items-center gap-2 cursor-pointer text-slate-700">
+            <input type="checkbox" checked={empresa_debe_tecnico} onChange={e => onEmpresaDebeChange(e.target.checked)} className="rounded" />
+            <span className="text-xs font-medium">Empresa le pagará al técnico {formatCurrency(liq.monto_tecnico)} después (transferir luego)</span>
           </label>
         </div>
       )}
@@ -146,17 +152,21 @@ function PanelLiquidacion({ liq, medio_pago, efectivo_entregado, onEntregadoChan
           <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1.5">
             ✓ Técnico recibe el 100% — Quedan a paz y salvo
           </p>
-        ) : !esEfectivo ? (
-          <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1.5">
-            ✓ Pago digital llega a la empresa. Técnico cobra su parte ({formatCurrency(liq.monto_tecnico)}) de una — A paz y salvo
-          </p>
-        ) : efectivo_entregado ? (
+        ) : esEfectivo && efectivo_entregado ? (
           <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1.5">
             ✓ Técnico entregó efectivo completo — Quedan a paz y salvo
           </p>
-        ) : (
+        ) : esEfectivo ? (
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
             ⚠ Técnico quedará con deuda de {formatCurrency(liq.monto_empresa)} con la empresa
+          </p>
+        ) : empresa_debe_tecnico ? (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+            ⏳ Empresa le debe al técnico {formatCurrency(liq.monto_tecnico)} — quedará pendiente en pagos
+          </p>
+        ) : (
+          <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1.5">
+            ✓ Pago digital — técnico cobra su parte ({formatCurrency(liq.monto_tecnico)}) de inmediato. A paz y salvo
           </p>
         )}
       </div>
@@ -258,7 +268,7 @@ export default function ServiciosPage() {
               <CheckCircle size={15} />
             </button>
           )}
-          {s.es_visita && s.estado !== 'convertida' && (
+          {s.es_visita && ['pendiente', 'en_progreso'].includes(s.estado) && (
             <button onClick={() => { setSelected(s); setModal('convertir'); }}
               className="rounded p-1 text-blue-600 hover:bg-blue-50" title="Convertir a Servicio">
               <RefreshCw size={15} />
@@ -365,7 +375,7 @@ function ModalCrear({ open, onClose, onSuccess, tecnicos, tipos, ciudades }: {
     fecha: today(), valor: '', medio_pago: '', es_visita: false,
     tiene_materiales: false, costo_materiales: '',
     tiene_herramienta: false, costo_herramienta: '',
-    completado: false, efectivo_entregado: false,
+    completado: false, efectivo_entregado: false, empresa_debe_tecnico: false,
     motivo_pendiente: '', observaciones: '',
   });
   const [form, setForm] = useState(emptyForm);
@@ -453,9 +463,10 @@ function ModalCrear({ open, onClose, onSuccess, tecnicos, tipos, ciudades }: {
       costo_materiales:      form.tiene_materiales ? parseFloat(form.costo_materiales || '0') : 0,
       tiene_herramienta:     form.tiene_herramienta,
       costo_herramienta:     form.tiene_herramienta ? parseFloat(form.costo_herramienta || '0') : 0,
-      estado:              form.completado ? 'completado' : undefined,
-      efectivo_entregado:  form.efectivo_entregado,
-      motivo_pendiente:    !form.completado && form.motivo_pendiente ? form.motivo_pendiente : null,
+      estado:               form.completado ? 'completado' : undefined,
+      efectivo_entregado:   form.efectivo_entregado,
+      empresa_debe_tecnico: form.completado && form.medio_pago !== 'efectivo' ? form.empresa_debe_tecnico : false,
+      motivo_pendiente:     !form.completado && form.motivo_pendiente ? form.motivo_pendiente : null,
       observaciones:       form.observaciones || null,
     });
   };
@@ -532,9 +543,14 @@ function ModalCrear({ open, onClose, onSuccess, tecnicos, tipos, ciudades }: {
 
         <Input label="Observaciones" value={form.observaciones} onChange={e => s('observaciones')(e.target.value)} placeholder="Opcional" />
 
-        <PanelLiquidacion liq={liq} medio_pago={form.medio_pago}
+        <PanelLiquidacion
+          liq={liq}
+          medio_pago={form.medio_pago}
           efectivo_entregado={form.efectivo_entregado}
-          onEntregadoChange={v => setForm(f => ({ ...f, efectivo_entregado: v }))} />
+          empresa_debe_tecnico={form.empresa_debe_tecnico}
+          onEntregadoChange={v => setForm(f => ({ ...f, efectivo_entregado: v }))}
+          onEmpresaDebeChange={v => setForm(f => ({ ...f, empresa_debe_tecnico: v }))}
+        />
 
         {error && <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">{error}</p>}
 
@@ -682,7 +698,7 @@ function ModalCompletar({ open, servicio, onClose, onSuccess, tecnicos, tipos }:
     valor: '', medio_pago: '',
     tiene_materiales: false, costo_materiales: '',
     tiene_herramienta: false, costo_herramienta: '',
-    efectivo_entregado: false,
+    efectivo_entregado: false, empresa_debe_tecnico: false,
   });
   const [error, setError] = useState('');
   const { mutate, isPending } = useMutation({
@@ -703,13 +719,14 @@ function ModalCompletar({ open, servicio, onClose, onSuccess, tecnicos, tipos }:
   const submit = (e: React.FormEvent) => {
     e.preventDefault(); setError('');
     mutate({
-      valor:              parseFloat(form.valor),
-      medio_pago:         form.medio_pago,
-      efectivo_entregado: form.efectivo_entregado,
-      tiene_materiales:   form.tiene_materiales,
-      costo_materiales:   form.tiene_materiales  ? parseFloat(form.costo_materiales  || '0') : 0,
-      tiene_herramienta:  form.tiene_herramienta,
-      costo_herramienta:  form.tiene_herramienta ? parseFloat(form.costo_herramienta || '0') : 0,
+      valor:                parseFloat(form.valor),
+      medio_pago:           form.medio_pago,
+      efectivo_entregado:   form.efectivo_entregado,
+      empresa_debe_tecnico: form.medio_pago !== 'efectivo' ? form.empresa_debe_tecnico : false,
+      tiene_materiales:     form.tiene_materiales,
+      costo_materiales:     form.tiene_materiales  ? parseFloat(form.costo_materiales  || '0') : 0,
+      tiene_herramienta:    form.tiene_herramienta,
+      costo_herramienta:    form.tiene_herramienta ? parseFloat(form.costo_herramienta || '0') : 0,
     });
   };
 
@@ -738,9 +755,14 @@ function ModalCompletar({ open, servicio, onClose, onSuccess, tecnicos, tipos }:
         {form.tiene_materiales && <Input label="Costo Materiales" type="number" value={form.costo_materiales} onChange={e => s('costo_materiales')(e.target.value)} placeholder="0" />}
         {form.tiene_herramienta && <Input label="Costo Herramienta" type="number" value={form.costo_herramienta} onChange={e => s('costo_herramienta')(e.target.value)} placeholder="0" />}
 
-        <PanelLiquidacion liq={liq} medio_pago={form.medio_pago}
+        <PanelLiquidacion
+          liq={liq}
+          medio_pago={form.medio_pago}
           efectivo_entregado={form.efectivo_entregado}
-          onEntregadoChange={v => setForm(f => ({ ...f, efectivo_entregado: v }))} />
+          empresa_debe_tecnico={form.empresa_debe_tecnico}
+          onEntregadoChange={v => setForm(f => ({ ...f, efectivo_entregado: v }))}
+          onEmpresaDebeChange={v => setForm(f => ({ ...f, empresa_debe_tecnico: v }))}
+        />
 
         {error && <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
@@ -757,13 +779,13 @@ function ModalConvertir({ open, servicio, onClose, onSuccess, tecnicos, tipos, c
   open: boolean; servicio: Servicio | null; onClose: () => void; onSuccess: () => void;
   tecnicos: Tecnico[]; tipos: TipoServicio[]; ciudades: Ciudad[];
 }) {
-  const [form, setForm] = useState({ 
-    tecnico_id: '', tipo_servicio_id: '', ciudad_id: '', 
+  const [form, setForm] = useState({
+    tecnico_id: '', tipo_servicio_id: '', ciudad_id: '',
     valor: '', medio_pago: '',
     tiene_materiales: false, costo_materiales: '',
     tiene_herramienta: false, costo_herramienta: '',
     observaciones: '',
-    completado: false
+    completado: false, efectivo_entregado: false, empresa_debe_tecnico: false,
   });
   const [error, setError] = useState('');
 
@@ -777,7 +799,7 @@ function ModalConvertir({ open, servicio, onClose, onSuccess, tecnicos, tipos, c
         tiene_materiales: false, costo_materiales: '',
         tiene_herramienta: false, costo_herramienta: '',
         observaciones: '',
-        completado: false
+        completado: false, efectivo_entregado: false, empresa_debe_tecnico: false,
       });
     }
   }, [servicio, open]);
@@ -791,20 +813,32 @@ function ModalConvertir({ open, servicio, onClose, onSuccess, tecnicos, tipos, c
   const submit = (e: React.FormEvent) => {
     e.preventDefault(); setError('');
     mutate({
-      tecnico_id:       form.tecnico_id || undefined,
-      tipo_servicio_id: form.tipo_servicio_id || undefined,
-      ciudad_id:        form.ciudad_id || undefined,
-      valor:            form.completado ? parseFloat(form.valor) : undefined,
-      medio_pago:       form.completado ? form.medio_pago : undefined,
-      tiene_materiales: form.completado ? form.tiene_materiales : undefined,
-      costo_materiales: form.completado && form.tiene_materiales ? parseFloat(form.costo_materiales || '0') : undefined,
-      tiene_herramienta: form.completado ? form.tiene_herramienta : undefined,
-      costo_herramienta: form.completado && form.tiene_herramienta ? parseFloat(form.costo_herramienta || '0') : undefined,
-      observaciones:    form.observaciones || undefined,
+      tecnico_id:           form.tecnico_id || undefined,
+      tipo_servicio_id:     form.tipo_servicio_id || undefined,
+      ciudad_id:            form.ciudad_id || undefined,
+      valor:                form.completado ? parseFloat(form.valor) : undefined,
+      medio_pago:           form.completado ? form.medio_pago : undefined,
+      efectivo_entregado:   form.completado ? form.efectivo_entregado : undefined,
+      empresa_debe_tecnico: form.completado && form.medio_pago !== 'efectivo' ? form.empresa_debe_tecnico : undefined,
+      tiene_materiales:     form.completado ? form.tiene_materiales : undefined,
+      costo_materiales:     form.completado && form.tiene_materiales ? parseFloat(form.costo_materiales || '0') : undefined,
+      tiene_herramienta:    form.completado ? form.tiene_herramienta : undefined,
+      costo_herramienta:    form.completado && form.tiene_herramienta ? parseFloat(form.costo_herramienta || '0') : undefined,
+      observaciones:        form.observaciones || undefined,
     });
   };
 
   const s = (k: string) => (v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
+
+  // Liquidación para el SERVICIO convertido (es_visita=false → regla de visita no aplica aquí)
+  const tecnicoConv = form.completado ? (tecnicos.find(t => String(t.id) === form.tecnico_id) ?? null) : null;
+  const tipoConv    = form.completado ? (tipos.find(t => String(t.id) === form.tipo_servicio_id) ?? null) : null;
+  const liqConv = form.completado ? calcularLiquidacion({
+    valor: form.valor, medio_pago: form.medio_pago, es_visita: false,
+    tiene_materiales: form.tiene_materiales, costo_materiales: form.costo_materiales,
+    tiene_herramienta: form.tiene_herramienta, costo_herramienta: form.costo_herramienta,
+    tecnico: tecnicoConv, tipo: tipoConv,
+  }) : null;
 
   const cliente = servicio?.nombre_cliente_anon || 'Sin nombre';
 
@@ -857,6 +891,14 @@ function ModalConvertir({ open, servicio, onClose, onSuccess, tecnicos, tipos, c
             </div>
             {form.tiene_materiales && <Input label="Costo Materiales" type="number" value={form.costo_materiales} onChange={e => s('costo_materiales')(e.target.value)} placeholder="0" />}
             {form.tiene_herramienta && <Input label="Costo Herramienta" type="number" value={form.costo_herramienta} onChange={e => s('costo_herramienta')(e.target.value)} placeholder="0" />}
+            <PanelLiquidacion
+              liq={liqConv}
+              medio_pago={form.medio_pago}
+              efectivo_entregado={form.efectivo_entregado}
+              empresa_debe_tecnico={form.empresa_debe_tecnico}
+              onEntregadoChange={v => setForm(f => ({ ...f, efectivo_entregado: v }))}
+              onEmpresaDebeChange={v => setForm(f => ({ ...f, empresa_debe_tecnico: v }))}
+            />
           </div>
         )}
 

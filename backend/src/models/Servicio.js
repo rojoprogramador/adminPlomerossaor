@@ -58,8 +58,10 @@ const Servicio = sequelize.define('Servicio', {
   porcentaje_tecnico_override: { type: DataTypes.DECIMAL(5, 2), allowNull: true, validate: { min: 0, max: 100 } },
 
   // Pago del cliente
-  medio_pago:          { type: DataTypes.ENUM(...Object.values(MEDIO_PAGO)), allowNull: true },
-  efectivo_entregado:  { type: DataTypes.BOOLEAN, defaultValue: false },
+  medio_pago:           { type: DataTypes.ENUM(...Object.values(MEDIO_PAGO)), allowNull: true },
+  efectivo_entregado:   { type: DataTypes.BOOLEAN, defaultValue: false },
+  // Cuando el pago NO es en efectivo y la empresa aún le debe al técnico su parte
+  empresa_debe_tecnico: { type: DataTypes.BOOLEAN, defaultValue: false },
 
   // Estado
   estado:           { type: DataTypes.ENUM(...Object.values(ESTADO_SERVICIO)), defaultValue: ESTADO_SERVICIO.PENDIENTE },

@@ -4,7 +4,7 @@ const { isAdmin } = require('../middlewares/roles.middleware');
 const ctrl   = require('../controllers/gastos.controller');
 
 router.use(auth);
-router.get('/',    ctrl.listar);
+router.get('/',    isAdmin, ctrl.listar);
 router.post('/',   isAdmin, ctrl.crear);
 router.put('/:id', isAdmin, ctrl.actualizar);
 router.delete('/:id', isAdmin, ctrl.eliminar);

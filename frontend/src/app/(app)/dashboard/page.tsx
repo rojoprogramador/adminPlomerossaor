@@ -1,14 +1,24 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { formatCurrency, firstDayOfMonth, today } from '@/lib/utils';
 import { StatCard } from '@/components/ui/Card';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { useAuth } from '@/lib/auth';
 
 const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4'];
 
 export default function DashboardPage() {
+  const { user } = useAuth();
+  const router   = useRouter();
+
+  useEffect(() => {
+    if (user?.rol === 'agente_sc') {
+      router.replace('/servicios');
+    }
+  }, [user, router]);
   const [desde, setDesde] = useState(firstDayOfMonth());
   const [hasta, setHasta] = useState(today());
 

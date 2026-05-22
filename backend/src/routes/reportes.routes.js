@@ -1,16 +1,18 @@
 const router = require('express').Router();
 const auth   = require('../middlewares/auth.middleware');
-const { isAdminOrAgente } = require('../middlewares/roles.middleware');
+const { isAdmin, isAdminOrAgente } = require('../middlewares/roles.middleware');
 const ctrl   = require('../controllers/reportes.controller');
 
-router.use(auth, isAdminOrAgente);
-router.get('/dashboard',          ctrl.dashboard);
-router.get('/cierre-dia',         ctrl.cierreDia);
-router.get('/cierre-mensual',     ctrl.cierreMensual);
-router.get('/nomina',             ctrl.nomina);
-router.get('/garantias-tecnico',  ctrl.garantiasTecnico);
-router.get('/exportar-excel',     ctrl.exportarExcel);
-router.get('/medios-pago',        ctrl.mediosPago);
-router.get('/costos',             ctrl.costos);
+router.use(auth);
+// Visibles para admin y agente SC
+router.get('/cierre-dia',         isAdminOrAgente, ctrl.cierreDia);
+router.get('/garantias-tecnico',  isAdminOrAgente, ctrl.garantiasTecnico);
+router.get('/exportar-excel',     isAdminOrAgente, ctrl.exportarExcel);
+// Solo admin/superadmin (datos financieros internos)
+router.get('/dashboard',          isAdmin, ctrl.dashboard);
+router.get('/cierre-mensual',     isAdmin, ctrl.cierreMensual);
+router.get('/nomina',             isAdmin, ctrl.nomina);
+router.get('/medios-pago',        isAdmin, ctrl.mediosPago);
+router.get('/costos',             isAdmin, ctrl.costos);
 
 module.exports = router;

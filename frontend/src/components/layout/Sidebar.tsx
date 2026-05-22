@@ -9,7 +9,7 @@ import {
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
-const navGeneral = [
+const navAdmin = [
   { href: '/dashboard',      label: 'Dashboard',         icon: LayoutDashboard },
   { href: '/servicios',      label: 'Servicios',          icon: Wrench },
   { href: '/garantias',      label: 'Garantías',          icon: Shield },
@@ -18,6 +18,14 @@ const navGeneral = [
   { href: '/reportes',       label: 'Reportes',           icon: FileText },
   { href: '/carga-masiva',   label: 'Carga Masiva',       icon: Upload },
   { href: '/gastos',         label: 'Gastos',             icon: TrendingDown },
+];
+
+// Agente SC: solo atención al cliente, sin datos financieros internos
+const navAgente = [
+  { href: '/servicios',    label: 'Servicios',   icon: Wrench },
+  { href: '/garantias',    label: 'Garantías',   icon: Shield },
+  { href: '/reportes',     label: 'Reportes',    icon: FileText },
+  { href: '/carga-masiva', label: 'Carga Masiva', icon: Upload },
 ];
 
 const navCatalogos = [
@@ -39,6 +47,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const isSuperadmin = user?.rol === 'superadmin';
+  const isAgente     = user?.rol === 'agente_sc';
 
   const renderLink = (item: { href: string; label: string; icon: React.ElementType }) => {
     const Icon = item.icon;
@@ -72,15 +81,25 @@ export default function Sidebar() {
 
       {/* nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
-          {isSuperadmin ? (
+        {isSuperadmin && (
           <>
             <p className="px-3 pt-1 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Sistema</p>
             {navSuperadmin.map(renderLink)}
           </>
-        ) : (
+        )}
+        {isAgente && (
+          <>
+            <p className="px-3 pt-1 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Atención al Cliente</p>
+            {navAgente.map(renderLink)}
+            <div className="my-2 border-t border-slate-100" />
+            <p className="px-3 pt-1 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Catálogos</p>
+            {navCatalogos.map(renderLink)}
+          </>
+        )}
+        {!isSuperadmin && !isAgente && (
           <>
             <p className="px-3 pt-1 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Operaciones</p>
-            {navGeneral.map(renderLink)}
+            {navAdmin.map(renderLink)}
             <div className="my-2 border-t border-slate-100" />
             <p className="px-3 pt-1 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Catálogos</p>
             {navCatalogos.map(renderLink)}

@@ -7,6 +7,6 @@ router.use(auth);
 router.get('/',              isAdminOrAgente, ctrl.listar);
 router.get('/:id',           isAdminOrAgente, ctrl.obtener);
 router.post('/:id/reclamar', isAdminOrAgente, ctrl.reclamar);
-router.patch('/:id/cerrar',  isAdmin,         ctrl.cerrar);
+router.patch('/:id/cerrar',  isAdminOrAgente, ctrl.cerrar);
 
 module.exports = router;

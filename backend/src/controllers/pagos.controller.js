@@ -10,7 +10,7 @@ const { ok, err, serverErr } = require('../utils/respuesta');
 const listarTecnicos = async (req, res) => {
   try {
     const empresa_id = req.usuario.empresa_id;
-    const { estado, tecnico_id } = req.query;
+    const { estado_entrega, tecnico_id } = req.query;
 
     const tecnicos = await Tecnico.findAll({
       where: { empresa_id, ...(tecnico_id ? { id: tecnico_id } : {}) },
@@ -19,7 +19,7 @@ const listarTecnicos = async (req, res) => {
     const ids = tecnicos.map(t => t.id);
 
     const where = { tecnico_id: { [Op.in]: ids } };
-    if (estado) where.estado_entrega = estado;
+    if (estado_entrega) where.estado_entrega = estado_entrega;
 
     const pagos = await PagoTecnico.findAll({
       where,
