@@ -121,6 +121,7 @@ export interface PagoTecnico {
   porcentaje_tecnico: number;
   monto_tecnico: number;
   monto_empresa: number;
+  medio_pago_cliente?: string;
   estado_entrega: 'pendiente' | 'entregado';
   fecha_entrega?: string;
   fecha_registro: string;

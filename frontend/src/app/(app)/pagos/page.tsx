@@ -54,6 +54,16 @@ function PagosTecnicos() {
     onError: (e) => setError(getAxiosError(e)),
   });
 
+  const METODOS_LABEL: Record<string, string> = {
+    efectivo: 'Efectivo',
+    nequi: 'Nequi',
+    bancolombia: 'Bancolombia',
+    daviplata: 'Daviplata',
+    transferencia: 'Transferencia',
+    tarjeta: 'Tarjeta',
+    otro: 'Otro',
+  };
+
   const columns = [
     { key: 'tecnico',   header: 'Técnico',   render: (p: PagoTecnico) => <span className="font-medium">{p.tecnico?.nombre || '—'}</span> },
     {
@@ -65,18 +75,35 @@ function PagosTecnicos() {
         </div>
       ),
     },
-    { key: 'bruto',     header: 'Bruto',     render: (p: PagoTecnico) => formatCurrency(p.valor_bruto) },
-    { key: 'neto',      header: 'Neto',      render: (p: PagoTecnico) => formatCurrency(p.valor_neto) },
-    { key: 'pagar',     header: 'A Pagar',   render: (p: PagoTecnico) => <span className="font-semibold text-blue-700">{formatCurrency(p.monto_tecnico)}</span> },
+    {
+      key: 'metodo', header: 'Pago cliente',
+      render: (p: PagoTecnico) => {
+        const m = p.medio_pago_cliente || '';
+        const esEfectivo = m === 'efectivo';
+        return (
+          <span className={`text-xs font-medium rounded px-1.5 py-0.5 ${esEfectivo ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+            {METODOS_LABEL[m] || m || '—'}
+          </span>
+        );
+      },
+    },
+    { key: 'pagar',     header: 'A transferir al técnico',   render: (p: PagoTecnico) => <span className="font-semibold text-green-700">{formatCurrency(p.monto_tecnico)}</span> },
     { key: 'estado',    header: 'Estado',    render: (p: PagoTecnico) => <Badge label={p.estado_entrega} color={estadoBadgeColor(p.estado_entrega)} /> },
     {
       key: 'actions', header: '',
-      render: (p: PagoTecnico) => p.estado_entrega === 'pendiente' ? (
-        <button onClick={() => { setSelected(p); setDescuento(''); setError(''); }}
-          className="text-xs rounded px-2 py-1 bg-green-50 text-green-700 hover:bg-green-100">
-          Entregar
-        </button>
-      ) : null,
+      render: (p: PagoTecnico) => {
+        if (p.estado_entrega !== 'pendiente') return null;
+        const esEfectivo = p.medio_pago_cliente === 'efectivo';
+        if (esEfectivo) {
+          return <span className="text-xs text-slate-400 italic">Ver en Deudas</span>;
+        }
+        return (
+          <button onClick={() => { setSelected(p); setDescuento(''); setError(''); }}
+            className="text-xs rounded px-2 py-1 bg-green-50 text-green-700 hover:bg-green-100">
+            Marcar transferido
+          </button>
+        );
+      },
     },
   ];
 

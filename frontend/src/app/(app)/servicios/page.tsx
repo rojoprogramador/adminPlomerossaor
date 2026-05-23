@@ -142,7 +142,7 @@ function PanelLiquidacion({ liq, medio_pago, efectivo_entregado, empresa_debe_te
         <div className="border-t border-slate-200 pt-2">
           <label className="flex items-center gap-2 cursor-pointer text-slate-700">
             <input type="checkbox" checked={empresa_debe_tecnico} onChange={e => onEmpresaDebeChange(e.target.checked)} className="rounded" />
-            <span className="text-xs font-medium">Empresa le pagará al técnico {formatCurrency(liq.monto_tecnico)} después (transferir luego)</span>
+            <span className="text-xs font-medium">Pendiente transferir al técnico {formatCurrency(liq.monto_tecnico)} — desmarcar si ya se transfirió</span>
           </label>
         </div>
       )}
@@ -429,6 +429,14 @@ function ModalCrear({ open, onClose, onSuccess, tecnicos, tipos, ciudades }: {
     }
   }, [form.nombre_cliente_anon, form.cliente_id]);
 
+  useEffect(() => {
+    if (form.medio_pago && form.medio_pago !== 'efectivo') {
+      setForm(f => ({ ...f, empresa_debe_tecnico: true }));
+    } else {
+      setForm(f => ({ ...f, empresa_debe_tecnico: false }));
+    }
+  }, [form.medio_pago]);
+
   const { mutate, isPending } = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.post('/servicios', body),
     onSuccess: () => { onSuccess(); onClose(); setForm(emptyForm()); },
@@ -701,6 +709,15 @@ function ModalCompletar({ open, servicio, onClose, onSuccess, tecnicos, tipos }:
     efectivo_entregado: false, empresa_debe_tecnico: false,
   });
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (form.medio_pago && form.medio_pago !== 'efectivo') {
+      setForm(f => ({ ...f, empresa_debe_tecnico: true }));
+    } else {
+      setForm(f => ({ ...f, empresa_debe_tecnico: false }));
+    }
+  }, [form.medio_pago]);
+
   const { mutate, isPending } = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.patch(`/servicios/${servicio?.id}/completar`, body),
     onSuccess: () => { onSuccess(); onClose(); },
@@ -803,6 +820,14 @@ function ModalConvertir({ open, servicio, onClose, onSuccess, tecnicos, tipos, c
       });
     }
   }, [servicio, open]);
+
+  useEffect(() => {
+    if (form.medio_pago && form.medio_pago !== 'efectivo') {
+      setForm(f => ({ ...f, empresa_debe_tecnico: true }));
+    } else {
+      setForm(f => ({ ...f, empresa_debe_tecnico: false }));
+    }
+  }, [form.medio_pago]);
 
   const { mutate, isPending } = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.patch(`/servicios/${servicio?.id}/convertir`, body),
