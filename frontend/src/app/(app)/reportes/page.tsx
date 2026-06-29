@@ -10,7 +10,7 @@ import { Download } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Tecnico } from '@/types';
 
-type Tab = 'cierre' | 'cierre_mensual' | 'nomina' | 'garantias';
+type Tab = 'cierre' | 'cierre_semanal' | 'cierre_mensual' | 'nomina' | 'garantias';
 
 export default function ReportesPage() {
   const { user } = useAuth();
@@ -19,6 +19,7 @@ export default function ReportesPage() {
 
   const allTabs: { key: Tab; label: string; adminOnly?: boolean }[] = [
     { key: 'cierre',         label: 'Cierre del Día' },
+    { key: 'cierre_semanal', label: 'Cierre Semanal', adminOnly: true },
     { key: 'cierre_mensual', label: 'Cierre Mensual', adminOnly: true },
     { key: 'nomina',         label: 'Nómina Mensual', adminOnly: true },
     { key: 'garantias',      label: 'Garantías por Técnico' },
@@ -36,6 +37,7 @@ export default function ReportesPage() {
         ))}
       </div>
       {tab === 'cierre'         && <CierreDia />}
+      {tab === 'cierre_semanal' && <CierreSemanal />}
       {tab === 'cierre_mensual' && <CierreMensual />}
       {tab === 'nomina'         && <Nomina />}
       {tab === 'garantias'      && <GarantiasTecnico />}
@@ -131,6 +133,95 @@ function CierreDia() {
           {isLoading && <p className="text-sm text-slate-400">Cargando...</p>}
         </>
       )}
+    </div>
+  );
+}
+
+function CierreSemanal() {
+  const [fecha, setFecha] = useState(today());
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['cierre-semanal', fecha],
+    queryFn: () => api.get(`/reportes/cierre-semanal?fecha=${fecha}`).then(r => r.data),
+  });
+
+  const t = data?.totales;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <label htmlFor="fecha-semanal" className="text-sm text-slate-600">Semana que contiene:</label>
+          <input id="fecha-semanal" type="date" value={fecha} onChange={e => setFecha(e.target.value)}
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+        </div>
+        {data?.periodo && (
+          <span className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded">
+            {data.periodo.desde} — {data.periodo.hasta}
+          </span>
+        )}
+      </div>
+
+      {data && (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+            <StatCard label="Servicios"   value={data.resumen?.total_servicios ?? 0} color="blue" />
+            <StatCard label="Completados" value={data.resumen?.completados ?? 0}     color="green" />
+            <StatCard label="Pendientes"  value={data.resumen?.pendientes ?? 0}      color="yellow" />
+            <StatCard label="Bruto"       value={formatCurrency(t?.bruto)}           color="green" />
+            <StatCard label="Utilidad"    value={formatCurrency(t?.utilidad_empresa)} color="purple" />
+          </div>
+
+          {data.por_dia?.length > 0 && (
+            <div className="rounded-xl bg-white border border-slate-200 overflow-hidden">
+              <div className="px-5 py-3 border-b border-slate-100">
+                <p className="font-semibold text-slate-800">Por Día</p>
+              </div>
+              <table className="min-w-full text-sm divide-y divide-slate-50">
+                <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+                  <tr>
+                    {['Día', 'Servicios', 'Completados', 'Bruto', 'Utilidad'].map(h => (
+                      <th key={h} className="px-4 py-2 text-left font-semibold tracking-wide">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {(data.por_dia as { fecha: string; dia: string; total: number; completados: number; bruto: number; utilidad: number }[]).map(d => (
+                    <tr key={d.fecha} className={`hover:bg-slate-50 ${d.total === 0 ? 'opacity-40' : ''}`}>
+                      <td className="px-4 py-2 font-medium">{d.dia} <span className="text-slate-400 font-normal text-xs">{d.fecha}</span></td>
+                      <td className="px-4 py-2">{d.total}</td>
+                      <td className="px-4 py-2">{d.completados}</td>
+                      <td className="px-4 py-2">{d.bruto > 0 ? formatCurrency(d.bruto) : '—'}</td>
+                      <td className="px-4 py-2 font-semibold text-purple-700">{d.utilidad > 0 ? formatCurrency(d.utilidad) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {data.por_tecnico?.length > 0 && (
+            <div className="rounded-xl bg-white border border-slate-200 p-5">
+              <p className="font-semibold text-slate-800 mb-3">Por Técnico</p>
+              <div className="space-y-2">
+                {(data.por_tecnico as { tecnico: { id: string; nombre: string }; cantidad: number; bruto: number; a_pagar: number; monto_empresa: number }[]).map(r => (
+                  <div key={r.tecnico.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-2.5">
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">{r.tecnico.nombre}</p>
+                      <p className="text-xs text-slate-500">{r.cantidad} servicios</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-green-700">Ganó: {formatCurrency(r.a_pagar)}</p>
+                      <p className="text-xs text-blue-600">Empresa: {formatCurrency(r.monto_empresa)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+      {isLoading && <p className="text-sm text-slate-400">Cargando...</p>}
     </div>
   );
 }

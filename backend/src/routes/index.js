@@ -17,5 +17,6 @@ router.use('/agentes',        require('./agentes.routes'));
 router.use('/tipos-servicio', require('./tipos-servicio.routes'));
 router.use('/reportes',       require('./reportes.routes'));
 router.use('/gastos',         require('./gastos.routes'));
+router.use('/ajustes',        require('./ajustes.routes'));
 
 module.exports = router;

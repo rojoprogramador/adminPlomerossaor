@@ -6,6 +6,7 @@ const ctrl   = require('../controllers/reportes.controller');
 router.use(auth);
 // Visibles para admin y agente SC
 router.get('/cierre-dia',         isAdminOrAgente, ctrl.cierreDia);
+router.get('/cierre-semanal',     isAdmin,         ctrl.cierreSemanal);
 router.get('/garantias-tecnico',  isAdminOrAgente, ctrl.garantiasTecnico);
 router.get('/exportar-excel',     isAdminOrAgente, ctrl.exportarExcel);
 // Solo admin/superadmin (datos financieros internos)

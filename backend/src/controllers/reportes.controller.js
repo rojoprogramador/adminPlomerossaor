@@ -250,6 +250,82 @@ const cierreMensual = async (req, res) => {
   } catch (e) { return serverErr(res, e); }
 };
 
+// ── CIERRE SEMANAL ────────────────────────────────────────────────────────────
+// GET /api/reportes/cierre-semanal?fecha=YYYY-MM-DD  (cualquier día de la semana)
+const cierreSemanal = async (req, res) => {
+  try {
+    const empresa_id = req.usuario.empresa_id;
+    const nowBogota  = new Date().toLocaleString('en-CA', { timeZone: 'America/Bogota' }).split(',')[0];
+    const referencia = req.query.fecha || nowBogota;
+
+    const d = new Date(referencia + 'T12:00:00');
+    const diffToMonday = d.getDay() === 0 ? -6 : 1 - d.getDay();
+    const lunes   = new Date(d); lunes.setDate(d.getDate() + diffToMonday);
+    const domingo = new Date(lunes); domingo.setDate(lunes.getDate() + 6);
+    const toStr   = x => x.toISOString().split('T')[0];
+    const fechaDesdeStr = toStr(lunes);
+    const fechaHastaStr = toStr(domingo);
+
+    const servicios = await Servicio.findAll({
+      where: { empresa_id, fecha: { [Op.between]: [fechaDesdeStr, fechaHastaStr] } },
+      include: [
+        { model: Tecnico,      as: 'tecnico',      attributes: ['id', 'nombre'] },
+        { model: TipoServicio, as: 'tipo_servicio', attributes: ['id', 'nombre'] },
+        { model: PagoTecnico,  as: 'pago_tecnico' },
+      ],
+      order: [['fecha', 'ASC'], ['created_at', 'ASC']],
+    });
+
+    const completados = servicios.filter(s => s.estado === 'completado');
+    const pendientes  = servicios.filter(s => ['pendiente', 'en_progreso', 'en_cotizacion'].includes(s.estado));
+
+    const totales = completados.reduce((acc, s) => {
+      const p = s.pago_tecnico;
+      if (!p) return acc;
+      acc.bruto            += parseFloat(p.valor_bruto)    || 0;
+      acc.costos           += (parseFloat(p.costo_materiales) || 0) + (parseFloat(p.costo_herramienta) || 0);
+      acc.neto             += parseFloat(p.valor_neto)     || 0;
+      acc.nomina_tecnicos  += parseFloat(p.monto_tecnico)  || 0;
+      acc.utilidad_empresa += parseFloat(p.monto_empresa)  || 0;
+      return acc;
+    }, { bruto: 0, costos: 0, neto: 0, nomina_tecnicos: 0, utilidad_empresa: 0 });
+
+    const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    const por_dia = Array.from({ length: 7 }, (_, i) => {
+      const dia = new Date(lunes); dia.setDate(lunes.getDate() + i);
+      const fechaDia  = toStr(dia);
+      const svsDia    = servicios.filter(s => s.fecha === fechaDia);
+      const compDia   = svsDia.filter(s => s.estado === 'completado');
+      const { bruto, utilidad } = compDia.reduce((a, s) => {
+        const p = s.pago_tecnico;
+        if (p) { a.bruto += parseFloat(p.valor_bruto) || 0; a.utilidad += parseFloat(p.monto_empresa) || 0; }
+        return a;
+      }, { bruto: 0, utilidad: 0 });
+      return { fecha: fechaDia, dia: DIAS[i], total: svsDia.length, completados: compDia.length, bruto, utilidad };
+    });
+
+    const porTecnicoMap = {};
+    completados.forEach(s => {
+      const p = s.pago_tecnico;
+      if (!p) return;
+      const tid = s.tecnico_id;
+      if (!porTecnicoMap[tid]) porTecnicoMap[tid] = { tecnico: s.tecnico, cantidad: 0, bruto: 0, a_pagar: 0, monto_empresa: 0 };
+      porTecnicoMap[tid].cantidad++;
+      porTecnicoMap[tid].bruto         += parseFloat(p.valor_bruto)   || 0;
+      porTecnicoMap[tid].a_pagar       += parseFloat(p.monto_tecnico) || 0;
+      porTecnicoMap[tid].monto_empresa += parseFloat(p.monto_empresa) || 0;
+    });
+
+    return ok(res, {
+      periodo: { desde: fechaDesdeStr, hasta: fechaHastaStr },
+      resumen: { total_servicios: servicios.length, completados: completados.length, pendientes: pendientes.length },
+      totales,
+      por_dia,
+      por_tecnico: Object.values(porTecnicoMap),
+    });
+  } catch (e) { return serverErr(res, e); }
+};
+
 // ── NÓMINA MENSUAL ────────────────────────────────────────────────────────────
 // GET /api/reportes/nomina?mes=1-12&anio=YYYY
 const nomina = async (req, res) => {
@@ -565,4 +641,4 @@ const costos = async (req, res) => {
   } catch (e) { return serverErr(res, e); }
 };
 
-module.exports = { dashboard, cierreDia, cierreMensual, nomina, garantiasTecnico, exportarExcel, mediosPago, costos };
+module.exports = { dashboard, cierreDia, cierreSemanal, cierreMensual, nomina, garantiasTecnico, exportarExcel, mediosPago, costos };

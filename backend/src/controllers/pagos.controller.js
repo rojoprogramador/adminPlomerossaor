@@ -25,7 +25,7 @@ const listarTecnicos = async (req, res) => {
       where,
       include: [
         { model: Tecnico,  as: 'tecnico',  attributes: ['id', 'nombre', 'saldo_deuda'] },
-        { model: Servicio, as: 'servicio', attributes: ['id', 'fecha', 'es_visita'], include: [{ model: TipoServicio, as: 'tipo_servicio', attributes: ['nombre'] }] },
+        { model: Servicio, as: 'servicio', attributes: ['id', 'fecha', 'es_visita', 'efectivo_entregado'], include: [{ model: TipoServicio, as: 'tipo_servicio', attributes: ['nombre'] }] },
       ],
       order: [['fecha_registro', 'DESC']],
     });

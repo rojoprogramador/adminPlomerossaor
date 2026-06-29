@@ -28,8 +28,8 @@ export default function Badge({ label, color = 'gray', className }: BadgeProps) 
 
 export const estadoBadgeColor = (estado: string): BadgeColor => {
   const map: Record<string, BadgeColor> = {
-    pendiente: 'yellow', en_progreso: 'blue', completado: 'green',
-    cancelado: 'red', convertida: 'purple',
+    en_cotizacion: 'orange', pendiente: 'yellow', en_progreso: 'blue',
+    completado: 'green', cerrado: 'gray', cancelado: 'red', convertida: 'purple',
     activa: 'green', vencida: 'red', reclamada: 'orange', resuelta: 'blue',
     saldada: 'green', parcial: 'orange',
     entregado: 'green',

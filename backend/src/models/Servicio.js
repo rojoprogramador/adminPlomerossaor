@@ -72,8 +72,9 @@ const Servicio = sequelize.define('Servicio', {
   documento_requerido: { type: DataTypes.ENUM(...Object.values(TIPO_DOCUMENTO)), allowNull: true },
 
   // Trazabilidad
-  observaciones: { type: DataTypes.TEXT, allowNull: true },
-  origen:        { type: DataTypes.ENUM(...Object.values(ORIGEN_REGISTRO)), defaultValue: ORIGEN_REGISTRO.MANUAL },
+  observaciones:      { type: DataTypes.TEXT, allowNull: true },
+  origen:             { type: DataTypes.ENUM(...Object.values(ORIGEN_REGISTRO)), defaultValue: ORIGEN_REGISTRO.MANUAL },
+  registrado_por_id:  { type: DataTypes.UUID, allowNull: true },
 }, {
   tableName: 'servicios',
   getterMethods: {

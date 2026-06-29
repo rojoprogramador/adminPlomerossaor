@@ -51,6 +51,7 @@ const Tecnico = sequelize.define('Tecnico', {
   periodo_pago:        { type: DataTypes.ENUM(...Object.values(PERIODO_PAGO)), allowNull: true },
   saldo_deuda:         { type: DataTypes.DECIMAL(12, 2), defaultValue: 0 },
   activo:              { type: DataTypes.BOOLEAN, defaultValue: true },
+  fecha_ingreso:       { type: DataTypes.DATEONLY, allowNull: true },
 }, { tableName: 'tecnicos' });
 
 // ─── AGENTE SC ───────────────────────────────────────────────────────────────

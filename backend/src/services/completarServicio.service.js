@@ -73,11 +73,13 @@ async function completarServicioTx(servicio, empresa, t, { efectivo_ya_entregado
     umbral_visita_alto:          empresa?.umbral_visita_alto,
   });
 
-  const esEfectivo      = servicio.medio_pago === MEDIO_PAGO.EFECTIVO;
+  const esEfectivo     = servicio.medio_pago === MEDIO_PAGO.EFECTIVO;
   // Si la empresa queda debiendo al técnico su parte (pago electrónico diferido)
-  const empresaDebeTec  = !esEfectivo && !!servicio.empresa_debe_tecnico;
-  const estado_entrega  = (esEfectivo || empresaDebeTec) ? ESTADO_ENTREGA_PAGO.PENDIENTE : ESTADO_ENTREGA_PAGO.ENTREGADO;
-  const fecha_entrega   = (esEfectivo || empresaDebeTec) ? null : (servicio.fecha_completado || new Date());
+  const empresaDebeTec = !esEfectivo && !!servicio.empresa_debe_tecnico;
+  // Liquidado: electrónico inmediato, o efectivo donde el técnico YA entregó la parte de la empresa
+  const esLiquidado    = (!esEfectivo && !empresaDebeTec) || (esEfectivo && efectivo_ya_entregado);
+  const estado_entrega = esLiquidado ? ESTADO_ENTREGA_PAGO.ENTREGADO : ESTADO_ENTREGA_PAGO.PENDIENTE;
+  const fecha_entrega  = esLiquidado ? (servicio.fecha_completado || new Date()) : null;
 
   const pago = await PagoTecnico.create({
     servicio_id:        servicio.id,

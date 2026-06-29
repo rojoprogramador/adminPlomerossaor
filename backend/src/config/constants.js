@@ -6,9 +6,11 @@ const ROLES = {
 };
 
 const ESTADO_SERVICIO = {
+  EN_COTIZACION: 'en_cotizacion',
   PENDIENTE: 'pendiente',
   EN_PROGRESO: 'en_progreso',
   COMPLETADO: 'completado',
+  CERRADO: 'cerrado',
   CANCELADO: 'cancelado',
   CONVERTIDA: 'convertida',
 };

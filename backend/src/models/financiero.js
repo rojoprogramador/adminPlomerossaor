@@ -87,13 +87,15 @@ const Documento = sequelize.define('Documento', {
 
 // ─── GASTO OPERACIONAL ────────────────────────────────────────────────────────
 const Gasto = sequelize.define('Gasto', {
-  id:         { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
-  empresa_id: { type: DataTypes.UUID, allowNull: false },
-  concepto:   { type: DataTypes.STRING, allowNull: false },
-  monto:      { type: DataTypes.DECIMAL(12, 2), allowNull: false },
-  fecha:      { type: DataTypes.DATEONLY, allowNull: false },
-  categoria:  { type: DataTypes.ENUM('publicidad', 'sc', 'arriendo', 'nomina_interna', 'combustible', 'herramientas', 'impuestos', 'mantenimiento', 'servicios_publicos', 'otro'), defaultValue: 'otro' },
-  notas:      { type: DataTypes.TEXT, allowNull: true },
+  id:                { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  empresa_id:        { type: DataTypes.UUID, allowNull: false },
+  concepto:          { type: DataTypes.STRING, allowNull: false },
+  monto:             { type: DataTypes.DECIMAL(12, 2), allowNull: false },
+  fecha:             { type: DataTypes.DATEONLY, allowNull: false },
+  categoria:         { type: DataTypes.ENUM('publicidad', 'sc', 'arriendo', 'nomina_interna', 'combustible', 'herramientas', 'impuestos', 'mantenimiento', 'servicios_publicos', 'otro'), defaultValue: 'otro' },
+  notas:             { type: DataTypes.TEXT, allowNull: true },
+  tecnico_id:        { type: DataTypes.UUID, allowNull: true },
+  registrado_por_id: { type: DataTypes.UUID, allowNull: true },
 }, { tableName: 'gastos' });
 
 // ─── DOCUMENTO TÉCNICO ────────────────────────────────────────────────────────
@@ -108,4 +110,17 @@ const DocumentoTecnico = sequelize.define('DocumentoTecnico', {
   activo:       { type: DataTypes.BOOLEAN, defaultValue: true },
 }, { tableName: 'documentos_tecnicos' });
 
-module.exports = { Garantia, PagoTecnico, DeudaTecnico, PagoAgente, Documento, Gasto, DocumentoTecnico };
+// ─── AJUSTE CONTABLE ──────────────────────────────────────────────────────────
+const AjusteContable = sequelize.define('AjusteContable', {
+  id:                { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  empresa_id:        { type: DataTypes.UUID, allowNull: false },
+  servicio_id:       { type: DataTypes.UUID, allowNull: false },
+  pago_tecnico_id:   { type: DataTypes.UUID, allowNull: true },
+  campo_modificado:  { type: DataTypes.STRING, allowNull: false },
+  valor_anterior:    { type: DataTypes.STRING, allowNull: true },
+  valor_nuevo:       { type: DataTypes.STRING, allowNull: true },
+  motivo:            { type: DataTypes.TEXT, allowNull: false },
+  realizado_por_id:  { type: DataTypes.UUID, allowNull: false },
+}, { tableName: 'ajustes_contables' });
+
+module.exports = { Garantia, PagoTecnico, DeudaTecnico, PagoAgente, Documento, Gasto, DocumentoTecnico, AjusteContable };

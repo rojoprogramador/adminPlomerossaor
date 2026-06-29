@@ -256,25 +256,25 @@ export default function ServiciosPage() {
       key: 'acciones', header: '',
       render: (s: Servicio) => (
         <div className="flex gap-1">
-          {isAdminOrAgente && s.estado !== 'cancelado' && (
+          {isAdminOrAgente && !['cancelado', 'cerrado'].includes(s.estado) && (
             <button onClick={() => { setSelected(s); setModal('editar'); }}
               className="rounded p-1 text-slate-500 hover:bg-slate-100" title="Editar">
               <Edit size={15} />
             </button>
           )}
-          {['pendiente', 'en_progreso'].includes(s.estado) && (
+          {['en_cotizacion', 'pendiente', 'en_progreso'].includes(s.estado) && (
             <button onClick={() => { setSelected(s); setModal('completar'); }}
               className="rounded p-1 text-green-600 hover:bg-green-50" title="Completar">
               <CheckCircle size={15} />
             </button>
           )}
-          {s.es_visita && ['pendiente', 'en_progreso'].includes(s.estado) && (
+          {s.es_visita && ['en_cotizacion', 'pendiente', 'en_progreso'].includes(s.estado) && (
             <button onClick={() => { setSelected(s); setModal('convertir'); }}
               className="rounded p-1 text-blue-600 hover:bg-blue-50" title="Convertir a Servicio">
               <RefreshCw size={15} />
             </button>
           )}
-          {['pendiente', 'en_progreso'].includes(s.estado) && (
+          {['en_cotizacion', 'pendiente', 'en_progreso'].includes(s.estado) && (
             <button onClick={() => { setSelected(s); setModal('cancelar'); }}
               className="rounded p-1 text-red-500 hover:bg-red-50" title="Cancelar">
               <XCircle size={15} />
@@ -320,9 +320,11 @@ export default function ServiciosPage() {
           <select value={filters.estado} onChange={e => setFilters(f => ({ ...f, estado: e.target.value }))}
             className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
             <option value="">Todos</option>
+            <option value="en_cotizacion">En Cotización</option>
             <option value="pendiente">Pendiente</option>
             <option value="en_progreso">En Progreso</option>
             <option value="completado">Completado</option>
+            <option value="cerrado">Cerrado</option>
             <option value="cancelado">Cancelado</option>
           </select>
         </div>
@@ -471,10 +473,10 @@ function ModalCrear({ open, onClose, onSuccess, tecnicos, tipos, ciudades }: {
       costo_materiales:      form.tiene_materiales ? parseFloat(form.costo_materiales || '0') : 0,
       tiene_herramienta:     form.tiene_herramienta,
       costo_herramienta:     form.tiene_herramienta ? parseFloat(form.costo_herramienta || '0') : 0,
-      estado:               form.completado ? 'completado' : undefined,
+      estado:               form.completado ? 'completado' : (form.motivo_pendiente === 'en_cotizacion' ? 'en_cotizacion' : undefined),
+      motivo_pendiente:     !form.completado && form.motivo_pendiente && form.motivo_pendiente !== 'en_cotizacion' ? form.motivo_pendiente : null,
       efectivo_entregado:   form.efectivo_entregado,
       empresa_debe_tecnico: form.completado && form.medio_pago !== 'efectivo' ? form.empresa_debe_tecnico : false,
-      motivo_pendiente:     !form.completado && form.motivo_pendiente ? form.motivo_pendiente : null,
       observaciones:       form.observaciones || null,
     });
   };
@@ -634,15 +636,22 @@ function ModalEditar({ open, servicio, onClose, onSuccess, tecnicos, tipos, ciud
   };
 
   const isCompletado = servicio?.estado === 'completado';
+  const isCerrado    = servicio?.estado === 'cerrado';
+  const isFinancialLocked = isCompletado || isCerrado;
 
   const s = (k: string) => (v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
 
   return (
     <Modal open={open} onClose={onClose} title="Editar Servicio" size="lg">
       <form onSubmit={submit} className="space-y-4">
+        {isCerrado && (
+          <div className="bg-slate-100 border border-slate-300 text-slate-700 text-sm px-3 py-2 rounded-lg">
+            Este servicio está <b>CERRADO</b> — la garantía venció. No se puede editar ningún campo. Para corregir valores financieros usa un <b>Ajuste Contable</b> (solo admin).
+          </div>
+        )}
         {isCompletado && (
           <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm px-3 py-2 rounded-lg">
-            Este servicio está completado. Puedes corregir errores de digitación (fecha, cliente, técnico, dirección), pero <b>no puedes alterar los valores cobrados</b> para no afectar la contabilidad.
+            Este servicio está completado. Puedes corregir datos de texto (fecha, cliente, técnico, dirección), pero <b>no puedes alterar los valores cobrados</b>.
           </div>
         )}
         <div className="grid grid-cols-2 gap-3">
@@ -654,7 +663,7 @@ function ModalEditar({ open, servicio, onClose, onSuccess, tecnicos, tipos, ciud
             options={tipos.map(t => ({ value: t.id, label: t.nombre }))} placeholder="Buscar tipo..." />
           <SearchSelect label="Ciudad *" value={form.ciudad_id} onChange={v => s('ciudad_id')(v as string)} required
             options={ciudades.map(c => ({ value: c.id, label: c.nombre }))} placeholder="Buscar ciudad..." />
-          <Input label="Valor Cobrado" type="number" value={form.valor} onChange={e => s('valor')(e.target.value)} placeholder="0" disabled={isCompletado} />
+          <Input label="Valor Cobrado" type="number" value={form.valor} onChange={e => s('valor')(e.target.value)} placeholder="0" disabled={isFinancialLocked} />
           <div className="col-span-2">
             <Input label="Dirección" value={form.direccion} onChange={e => s('direccion')(e.target.value)} placeholder="Ej: Calle 123..." />
           </div>
@@ -666,31 +675,31 @@ function ModalEditar({ open, servicio, onClose, onSuccess, tecnicos, tipos, ciud
             Es visita
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={form.tiene_materiales} onChange={e => s('tiene_materiales')(e.target.checked)} className="rounded" disabled={isCompletado} />
+            <input type="checkbox" checked={form.tiene_materiales} onChange={e => s('tiene_materiales')(e.target.checked)} className="rounded" disabled={isFinancialLocked} />
             Materiales
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={form.tiene_herramienta} onChange={e => s('tiene_herramienta')(e.target.checked)} className="rounded" disabled={isCompletado} />
+            <input type="checkbox" checked={form.tiene_herramienta} onChange={e => s('tiene_herramienta')(e.target.checked)} className="rounded" disabled={isFinancialLocked} />
             Herramienta
           </label>
         </div>
 
         {form.tiene_materiales && (
           <Input label="Costo Materiales" type="number" value={form.costo_materiales}
-            onChange={e => s('costo_materiales')(e.target.value)} placeholder="0" disabled={isCompletado} />
+            onChange={e => s('costo_materiales')(e.target.value)} placeholder="0" disabled={isFinancialLocked} />
         )}
         {form.tiene_herramienta && (
           <Input label="Costo Herramienta" type="number" value={form.costo_herramienta}
-            onChange={e => s('costo_herramienta')(e.target.value)} placeholder="0" disabled={isCompletado} />
+            onChange={e => s('costo_herramienta')(e.target.value)} placeholder="0" disabled={isFinancialLocked} />
         )}
 
-        <Input label="Observaciones" value={form.observaciones} onChange={e => s('observaciones')(e.target.value)} placeholder="Opcional" />
+        <Input label="Observaciones" value={form.observaciones} onChange={e => s('observaciones')(e.target.value)} placeholder="Opcional" disabled={isCerrado} />
 
         {error && <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">{error}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" loading={isPending}>Guardar Cambios</Button>
+          {!isCerrado && <Button type="submit" loading={isPending}>Guardar Cambios</Button>}
         </div>
       </form>
     </Modal>

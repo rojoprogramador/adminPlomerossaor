@@ -3,7 +3,7 @@ const { sequelize } = require('../config/database');
 const Empresa = require('./Empresa');
 const { Ciudad, Usuario, Cliente, Tecnico, AgenteSC } = require('./entidades');
 const { TipoServicio, Servicio } = require('./Servicio');
-const { Garantia, PagoTecnico, DeudaTecnico, PagoAgente, Documento, Gasto, DocumentoTecnico } = require('./financiero');
+const { Garantia, PagoTecnico, DeudaTecnico, PagoAgente, Documento, Gasto, DocumentoTecnico, AjusteContable } = require('./financiero');
 
 // ─── ASOCIACIONES ─────────────────────────────────────────────────────────────
 
@@ -77,6 +77,24 @@ Garantia.belongsTo(Tecnico, { foreignKey: 'tecnico_id', as: 'tecnico' });
 Tecnico.hasMany(DocumentoTecnico, { foreignKey: 'tecnico_id', as: 'documentos_tecnicos' });
 DocumentoTecnico.belongsTo(Tecnico, { foreignKey: 'tecnico_id', as: 'tecnico' });
 
+// Servicio → registrado_por (Usuario)
+Servicio.belongsTo(Usuario, { foreignKey: 'registrado_por_id', as: 'registrado_por' });
+Usuario.hasMany(Servicio,   { foreignKey: 'registrado_por_id', as: 'servicios_registrados' });
+
+// Gasto → tecnico y registrado_por (Usuario)
+Gasto.belongsTo(Tecnico,  { foreignKey: 'tecnico_id',        as: 'tecnico' });
+Gasto.belongsTo(Usuario,  { foreignKey: 'registrado_por_id', as: 'registrado_por' });
+Tecnico.hasMany(Gasto,    { foreignKey: 'tecnico_id',        as: 'gastos' });
+
+// AjusteContable → Servicio, PagoTecnico, Usuario
+Servicio.hasMany(AjusteContable,     { foreignKey: 'servicio_id',     as: 'ajustes_contables' });
+PagoTecnico.hasMany(AjusteContable,  { foreignKey: 'pago_tecnico_id', as: 'ajustes_contables' });
+AjusteContable.belongsTo(Servicio,   { foreignKey: 'servicio_id',     as: 'servicio' });
+AjusteContable.belongsTo(PagoTecnico,{ foreignKey: 'pago_tecnico_id', as: 'pago_tecnico' });
+AjusteContable.belongsTo(Usuario,    { foreignKey: 'realizado_por_id', as: 'realizado_por' });
+Empresa.hasMany(AjusteContable,      { foreignKey: 'empresa_id',      as: 'ajustes_contables' });
+AjusteContable.belongsTo(Empresa,    { foreignKey: 'empresa_id',      as: 'empresa' });
+
 // ─── EXPORTAR ─────────────────────────────────────────────────────────────────
 module.exports = {
   sequelize,
@@ -95,4 +113,5 @@ module.exports = {
   Documento,
   Gasto,
   DocumentoTecnico,
+  AjusteContable,
 };

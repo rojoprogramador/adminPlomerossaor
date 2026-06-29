@@ -81,7 +81,7 @@ export interface Servicio {
   tipo_servicio_id: number;
   ciudad_id: number;
   cliente_id?: number;
-  estado: 'pendiente' | 'en_progreso' | 'completado' | 'cancelado' | 'convertida';
+  estado: 'en_cotizacion' | 'pendiente' | 'en_progreso' | 'completado' | 'cerrado' | 'cancelado' | 'convertida';
   es_visita: boolean;
   es_garantia: boolean;
   direccion?: string;

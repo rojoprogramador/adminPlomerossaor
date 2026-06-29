@@ -94,13 +94,10 @@ function PagosTecnicos() {
       render: (p: PagoTecnico) => {
         if (p.estado_entrega !== 'pendiente') return null;
         const esEfectivo = p.medio_pago_cliente === 'efectivo';
-        if (esEfectivo) {
-          return <span className="text-xs text-slate-400 italic">Ver en Deudas</span>;
-        }
         return (
           <button onClick={() => { setSelected(p); setDescuento(''); setError(''); }}
             className="text-xs rounded px-2 py-1 bg-green-50 text-green-700 hover:bg-green-100">
-            Marcar transferido
+            {esEfectivo ? 'Marcar entregado' : 'Marcar transferido'}
           </button>
         );
       },
