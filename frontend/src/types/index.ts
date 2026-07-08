@@ -90,6 +90,7 @@ export interface Servicio {
   valor?: number;
   medio_pago?: string;
   efectivo_entregado: boolean;
+  empresa_debe_tecnico: boolean;
   tiene_materiales: boolean;
   costo_materiales: number;
   tiene_herramienta: boolean;

@@ -5,6 +5,15 @@ const {
   ESTADO_ENTREGA_PAGO, GARANTIA_DIAS_DEFAULT, TIPO_PAGO,
 } = require('../config/constants');
 
+// La garantía cuenta desde la fecha real del servicio (campo `fecha`), no desde
+// el momento en que se registró/completó en el sistema (`fecha_completado`).
+const toFechaOnly = (fecha) => (fecha instanceof Date ? fecha.toISOString() : String(fecha)).split('T')[0];
+
+const calcularFechaVence = (fechaInicio, dias) => {
+  const [y, m, d] = fechaInicio.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + dias)).toISOString().split('T')[0];
+};
+
 async function completarServicioTx(servicio, empresa, t, { efectivo_ya_entregado = false } = {}) {
   const tecnico = await Tecnico.findByPk(servicio.tecnico_id, { transaction: t });
 
@@ -41,13 +50,12 @@ async function completarServicioTx(servicio, empresa, t, { efectivo_ya_entregado
       && !servicio.es_visita && !servicio.es_garantia;
     if (tieneGarantiaN) {
       const dias = servicio.tipo_servicio?.garantia_dias || GARANTIA_DIAS_DEFAULT;
-      const fecha_vence = new Date(servicio.fecha_completado);
-      fecha_vence.setDate(fecha_vence.getDate() + dias);
+      const fecha_inicio = toFechaOnly(servicio.fecha);
       garantia = await Garantia.create({
         servicio_id:  servicio.id,
         tecnico_id:   servicio.tecnico_id,
-        fecha_inicio: servicio.fecha_completado.toISOString().split('T')[0],
-        fecha_vence:  fecha_vence.toISOString().split('T')[0],
+        fecha_inicio,
+        fecha_vence:  calcularFechaVence(fecha_inicio, dias),
         estado:       ESTADO_GARANTIA.ACTIVA,
       }, { transaction: t });
     }
@@ -117,13 +125,12 @@ async function completarServicioTx(servicio, empresa, t, { efectivo_ya_entregado
 
   if (tieneGarantia) {
     const dias = servicio.tipo_servicio?.garantia_dias || GARANTIA_DIAS_DEFAULT;
-    const fecha_vence = new Date(servicio.fecha_completado);
-    fecha_vence.setDate(fecha_vence.getDate() + dias);
+    const fecha_inicio = toFechaOnly(servicio.fecha);
     garantia = await Garantia.create({
       servicio_id:  servicio.id,
       tecnico_id:   servicio.tecnico_id,
-      fecha_inicio: servicio.fecha_completado.toISOString().split('T')[0],
-      fecha_vence:  fecha_vence.toISOString().split('T')[0],
+      fecha_inicio,
+      fecha_vence:  calcularFechaVence(fecha_inicio, dias),
       estado:       ESTADO_GARANTIA.ACTIVA,
     }, { transaction: t });
   }
@@ -131,4 +138,23 @@ async function completarServicioTx(servicio, empresa, t, { efectivo_ya_entregado
   return { pago, deuda, garantia };
 }
 
-module.exports = { completarServicioTx };
+// Revierte los efectos financieros generados al completar un servicio
+// (pago al técnico, deuda pendiente + saldo del técnico, garantía), para
+// poder eliminar o recalcular un servicio ya cerrado/completado.
+async function revertirEfectosFinancieros(servicio_id, t) {
+  const deudas = await DeudaTecnico.findAll({ where: { servicio_id }, transaction: t });
+  for (const deuda of deudas) {
+    if (parseFloat(deuda.monto_pendiente) > 0) {
+      await Tecnico.decrement('saldo_deuda', {
+        by:    deuda.monto_pendiente,
+        where: { id: deuda.tecnico_id },
+        transaction: t,
+      });
+    }
+  }
+  await DeudaTecnico.destroy({ where: { servicio_id }, transaction: t });
+  await PagoTecnico.destroy({ where: { servicio_id }, transaction: t });
+  await Garantia.destroy({ where: { servicio_id }, transaction: t });
+}
+
+module.exports = { completarServicioTx, revertirEfectosFinancieros, toFechaOnly, calcularFechaVence };

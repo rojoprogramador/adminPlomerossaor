@@ -11,10 +11,10 @@ import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import SearchSelect from '@/components/ui/SearchSelect';
-import { Plus, CheckCircle, RefreshCw, XCircle, Edit } from 'lucide-react';
+import { Plus, CheckCircle, RefreshCw, XCircle, Edit, Trash2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 
-type ModalType = 'crear' | 'editar' | 'completar' | 'convertir' | 'cancelar' | null;
+type ModalType = 'crear' | 'editar' | 'completar' | 'convertir' | 'cancelar' | 'eliminar' | null;
 
 // ─── Cálculo de liquidación (espeja la lógica del backend) ───────────────────
 const PAGO_DEFAULT_PCT   = 60;
@@ -179,6 +179,7 @@ function PanelLiquidacion({ liq, medio_pago, efectivo_entregado, empresa_debe_te
 export default function ServiciosPage() {
   const { user } = useAuth();
   const isAdminOrAgente = ['admin', 'superadmin', 'agente_sc'].includes(user?.rol || '');
+  const isAdmin = ['admin', 'superadmin'].includes(user?.rol || '');
   const qc = useQueryClient();
   const [modal, setModal]       = useState<ModalType>(null);
   const [selected, setSelected] = useState<Servicio | null>(null);
@@ -256,7 +257,7 @@ export default function ServiciosPage() {
       key: 'acciones', header: '',
       render: (s: Servicio) => (
         <div className="flex gap-1">
-          {isAdminOrAgente && !['cancelado', 'cerrado'].includes(s.estado) && (
+          {isAdminOrAgente && s.estado !== 'cancelado' && (s.estado !== 'cerrado' || isAdmin) && (
             <button onClick={() => { setSelected(s); setModal('editar'); }}
               className="rounded p-1 text-slate-500 hover:bg-slate-100" title="Editar">
               <Edit size={15} />
@@ -278,6 +279,12 @@ export default function ServiciosPage() {
             <button onClick={() => { setSelected(s); setModal('cancelar'); }}
               className="rounded p-1 text-red-500 hover:bg-red-50" title="Cancelar">
               <XCircle size={15} />
+            </button>
+          )}
+          {isAdmin && (
+            <button onClick={() => { setSelected(s); setModal('eliminar'); }}
+              className="rounded p-1 text-red-600 hover:bg-red-50" title="Eliminar (borra pago/deuda/garantía)">
+              <Trash2 size={15} />
             </button>
           )}
         </div>
@@ -355,12 +362,13 @@ export default function ServiciosPage() {
       <ModalCrear open={modal === 'crear'} onClose={() => setModal(null)} onSuccess={invalidate}
         tecnicos={tecnicos} tipos={tipos} ciudades={ciudades} />
       <ModalEditar open={modal === 'editar'} servicio={selected} onClose={() => setModal(null)} onSuccess={invalidate}
-        tecnicos={tecnicos} tipos={tipos} ciudades={ciudades} />
+        tecnicos={tecnicos} tipos={tipos} ciudades={ciudades} isAdmin={isAdmin} />
       <ModalCompletar open={modal === 'completar'} servicio={selected} onClose={() => setModal(null)} onSuccess={invalidate}
         tecnicos={tecnicos} tipos={tipos} />
       <ModalConvertir open={modal === 'convertir'} servicio={selected} onClose={() => setModal(null)} onSuccess={invalidate}
         tecnicos={tecnicos} tipos={tipos} ciudades={ciudades} />
       <ModalCancelar open={modal === 'cancelar'} servicio={selected} onClose={() => setModal(null)} onSuccess={invalidate} />
+      <ModalEliminar open={modal === 'eliminar'} servicio={selected} onClose={() => setModal(null)} onSuccess={invalidate} />
     </div>
   );
 }
@@ -574,17 +582,18 @@ function ModalCrear({ open, onClose, onSuccess, tecnicos, tipos, ciudades }: {
 }
 
 // ─── Modal Editar ──────────────────────────────────────────────────────────────
-function ModalEditar({ open, servicio, onClose, onSuccess, tecnicos, tipos, ciudades }: {
+function ModalEditar({ open, servicio, onClose, onSuccess, tecnicos, tipos, ciudades, isAdmin }: {
   open: boolean; servicio: Servicio | null; onClose: () => void; onSuccess: () => void;
-  tecnicos: Tecnico[]; tipos: TipoServicio[]; ciudades: Ciudad[];
+  tecnicos: Tecnico[]; tipos: TipoServicio[]; ciudades: Ciudad[]; isAdmin: boolean;
 }) {
   const emptyForm = () => ({
     fecha: '', nombre_cliente_anon: '',
     tecnico_id: '', tipo_servicio_id: '', ciudad_id: '',
-    direccion: '', valor: '',
+    direccion: '', valor: '', medio_pago: '',
     tiene_materiales: false, costo_materiales: '',
     tiene_herramienta: false, costo_herramienta: '',
-    observaciones: '', es_visita: false
+    observaciones: '', es_visita: false,
+    efectivo_entregado: false, empresa_debe_tecnico: false,
   });
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState('');
@@ -599,12 +608,15 @@ function ModalEditar({ open, servicio, onClose, onSuccess, tecnicos, tipos, ciud
         ciudad_id: servicio.ciudad_id ? String(servicio.ciudad_id) : '',
         direccion: servicio.direccion || '',
         valor: servicio.valor ? String(servicio.valor) : '',
+        medio_pago: servicio.medio_pago || '',
         tiene_materiales: !!servicio.tiene_materiales,
         costo_materiales: servicio.costo_materiales ? String(servicio.costo_materiales) : '',
         tiene_herramienta: !!servicio.tiene_herramienta,
         costo_herramienta: servicio.costo_herramienta ? String(servicio.costo_herramienta) : '',
         observaciones: servicio.observaciones || '',
         es_visita: !!servicio.es_visita,
+        efectivo_entregado: !!servicio.efectivo_entregado,
+        empresa_debe_tecnico: !!servicio.empresa_debe_tecnico,
       });
       setError('');
     }
@@ -615,6 +627,13 @@ function ModalEditar({ open, servicio, onClose, onSuccess, tecnicos, tipos, ciud
     onSuccess: () => { onSuccess(); onClose(); },
     onError: (e) => setError(getAxiosError(e)),
   });
+
+  const isCompletado = servicio?.estado === 'completado';
+  const isCerrado    = servicio?.estado === 'cerrado';
+  const isLiquidado  = isCompletado || isCerrado;
+  const isFinancialLocked = isLiquidado && !isAdmin;
+  // Admin editando un servicio ya liquidado: el backend revierte y recalcula pago/deuda/garantía
+  const isRecalculo = isLiquidado && isAdmin;
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault(); setError('');
@@ -632,24 +651,39 @@ function ModalEditar({ open, servicio, onClose, onSuccess, tecnicos, tipos, ciud
       tiene_herramienta:     form.tiene_herramienta,
       costo_herramienta:     form.tiene_herramienta ? parseFloat(form.costo_herramienta || '0') : 0,
       observaciones:         form.observaciones || null,
+      ...(isRecalculo ? {
+        medio_pago:           form.medio_pago || undefined,
+        efectivo_entregado:   form.efectivo_entregado,
+        empresa_debe_tecnico: form.medio_pago !== 'efectivo' ? form.empresa_debe_tecnico : false,
+      } : {}),
     });
   };
 
-  const isCompletado = servicio?.estado === 'completado';
-  const isCerrado    = servicio?.estado === 'cerrado';
-  const isFinancialLocked = isCompletado || isCerrado;
-
   const s = (k: string) => (v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
+
+  const tecnico = tecnicos.find(t => String(t.id) === form.tecnico_id) ?? null;
+  const tipo    = tipos.find(t => String(t.id) === form.tipo_servicio_id) ?? null;
+  const liq = isRecalculo ? calcularLiquidacion({
+    valor: form.valor, medio_pago: form.medio_pago, es_visita: form.es_visita,
+    tiene_materiales: form.tiene_materiales, costo_materiales: form.costo_materiales,
+    tiene_herramienta: form.tiene_herramienta, costo_herramienta: form.costo_herramienta,
+    tecnico, tipo,
+  }) : null;
 
   return (
     <Modal open={open} onClose={onClose} title="Editar Servicio" size="lg">
       <form onSubmit={submit} className="space-y-4">
-        {isCerrado && (
-          <div className="bg-slate-100 border border-slate-300 text-slate-700 text-sm px-3 py-2 rounded-lg">
-            Este servicio está <b>CERRADO</b> — la garantía venció. No se puede editar ningún campo. Para corregir valores financieros usa un <b>Ajuste Contable</b> (solo admin).
+        {isRecalculo && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm px-3 py-2 rounded-lg">
+            Este servicio ya está <b>{isCerrado ? 'CERRADO' : 'completado'}</b>. Eres admin: puedes corregir cualquier campo, incluidos los financieros. Si cambias valor, medio de pago, materiales, técnico o fecha, el pago del técnico, la deuda y la garantía se <b>recalculan automáticamente</b> con los datos nuevos.
           </div>
         )}
-        {isCompletado && (
+        {isFinancialLocked && isCerrado && (
+          <div className="bg-slate-100 border border-slate-300 text-slate-700 text-sm px-3 py-2 rounded-lg">
+            Este servicio está <b>CERRADO</b> — la garantía venció. No puedes editar valores financieros ni el técnico. Solo un admin puede hacerlo.
+          </div>
+        )}
+        {isFinancialLocked && isCompletado && (
           <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm px-3 py-2 rounded-lg">
             Este servicio está completado. Puedes corregir datos de texto (fecha, cliente, técnico, dirección), pero <b>no puedes alterar los valores cobrados</b>.
           </div>
@@ -664,6 +698,10 @@ function ModalEditar({ open, servicio, onClose, onSuccess, tecnicos, tipos, ciud
           <SearchSelect label="Ciudad *" value={form.ciudad_id} onChange={v => s('ciudad_id')(v as string)} required
             options={ciudades.map(c => ({ value: c.id, label: c.nombre }))} placeholder="Buscar ciudad..." />
           <Input label="Valor Cobrado" type="number" value={form.valor} onChange={e => s('valor')(e.target.value)} placeholder="0" disabled={isFinancialLocked} />
+          {isRecalculo && (
+            <Select label="Medio de Pago" value={form.medio_pago} onChange={e => s('medio_pago')(e.target.value)}
+              options={MEDIO_PAGO_OPTIONS} placeholder="Seleccionar" />
+          )}
           <div className="col-span-2">
             <Input label="Dirección" value={form.direccion} onChange={e => s('direccion')(e.target.value)} placeholder="Ej: Calle 123..." />
           </div>
@@ -693,13 +731,24 @@ function ModalEditar({ open, servicio, onClose, onSuccess, tecnicos, tipos, ciud
             onChange={e => s('costo_herramienta')(e.target.value)} placeholder="0" disabled={isFinancialLocked} />
         )}
 
-        <Input label="Observaciones" value={form.observaciones} onChange={e => s('observaciones')(e.target.value)} placeholder="Opcional" disabled={isCerrado} />
+        <Input label="Observaciones" value={form.observaciones} onChange={e => s('observaciones')(e.target.value)} placeholder="Opcional" disabled={isCerrado && !isAdmin} />
+
+        {isRecalculo && (
+          <PanelLiquidacion
+            liq={liq}
+            medio_pago={form.medio_pago}
+            efectivo_entregado={form.efectivo_entregado}
+            empresa_debe_tecnico={form.empresa_debe_tecnico}
+            onEntregadoChange={v => setForm(f => ({ ...f, efectivo_entregado: v }))}
+            onEmpresaDebeChange={v => setForm(f => ({ ...f, empresa_debe_tecnico: v }))}
+          />
+        )}
 
         {error && <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">{error}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-          {!isCerrado && <Button type="submit" loading={isPending}>Guardar Cambios</Button>}
+          {(!isCerrado || isAdmin) && <Button type="submit" loading={isPending}>Guardar Cambios</Button>}
         </div>
       </form>
     </Modal>
@@ -981,6 +1030,51 @@ function ModalCancelar({ open, servicio, onClose, onSuccess }: {
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={onClose}>No, salir</Button>
           <Button type="submit" variant="danger" loading={isPending}>Sí, Cancelar</Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Modal Eliminar (solo admin) ───────────────────────────────────────────────
+function ModalEliminar({ open, servicio, onClose, onSuccess }: {
+  open: boolean; servicio: Servicio | null; onClose: () => void; onSuccess: () => void;
+}) {
+  const [confirmacion, setConfirmacion] = useState('');
+  const [error, setError] = useState('');
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: () => api.delete(`/servicios/${servicio?.id}`),
+    onSuccess: () => { onSuccess(); onClose(); setConfirmacion(''); },
+    onError: (e) => setError(getAxiosError(e)),
+  });
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault(); setError('');
+    mutate();
+  };
+
+  const cliente = servicio?.nombre_cliente_anon || servicio?.cliente?.nombre_completo || 'Sin nombre';
+
+  return (
+    <Modal open={open} onClose={() => { onClose(); setConfirmacion(''); }} title="Eliminar Servicio" size="sm">
+      <form onSubmit={submit} className="space-y-4">
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg space-y-1">
+          <p>Vas a eliminar el servicio de <b>{cliente}</b> ({servicio?.fecha ? formatDate(servicio.fecha) : '—'}).</p>
+          <p>Esta acción borra el registro por completo y revierte todo lo que haya generado: pago al técnico, deuda y saldo pendiente, y garantía. <b>No se puede deshacer.</b></p>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-slate-700">Escribe ELIMINAR para confirmar</label>
+          <input value={confirmacion} onChange={e => setConfirmacion(e.target.value)}
+            placeholder="ELIMINAR"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500" />
+        </div>
+        {error && <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">{error}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="outline" onClick={() => { onClose(); setConfirmacion(''); }}>No, salir</Button>
+          <Button type="submit" variant="danger" loading={isPending} disabled={confirmacion.trim().toUpperCase() !== 'ELIMINAR'}>
+            Sí, Eliminar
+          </Button>
         </div>
       </form>
     </Modal>

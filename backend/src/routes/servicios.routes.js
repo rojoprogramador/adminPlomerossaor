@@ -18,5 +18,6 @@ router.put('/:id',              isAdminOrAgente, ctrl.actualizar);
 router.patch('/:id/completar',  isAdminOrAgente, ctrl.completar);
 router.patch('/:id/convertir',  isAdminOrAgente, ctrl.convertir);
 router.patch('/:id/cancelar',   isAdminOrAgente, ctrl.cancelar);
+router.delete('/:id',           isAdmin,         ctrl.eliminar);
 
 module.exports = router;

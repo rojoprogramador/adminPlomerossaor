@@ -2,11 +2,11 @@ const { Op } = require('sequelize');
 const { sequelize } = require('../config/database');
 const {
   Servicio, Empresa, TipoServicio, Cliente, Tecnico, AgenteSC, Ciudad,
-  PagoTecnico, DeudaTecnico, Garantia,
+  PagoTecnico, DeudaTecnico, Garantia, Documento, AjusteContable,
 } = require('../models');
 const { calcularPago, validarCostos } = require('../services/calculoPago.service');
-const { completarServicioTx } = require('../services/completarServicio.service');
-const { ESTADO_SERVICIO } = require('../config/constants');
+const { completarServicioTx, revertirEfectosFinancieros } = require('../services/completarServicio.service');
+const { ESTADO_SERVICIO, ESTADO_GARANTIA, ROLES } = require('../config/constants');
 const { ok, err, serverErr } = require('../utils/respuesta');
 
 // Estados en los que los campos financieros quedan bloqueados
@@ -200,14 +200,82 @@ const reasignarTecnico = async (servicio, nuevoTecnicoId) => {
   await Garantia.update({ tecnico_id: nuevoTecnicoId }, { where: { servicio_id: servicio.id } });
 };
 
+// Campos que, al cambiar, obligan a recalcular pago/deuda/garantía de un servicio ya liquidado
+// (incluye `fecha`: la garantía cuenta desde la fecha real del servicio)
+const CAMPOS_RECALCULO = ['valor', 'medio_pago', 'tiene_materiales', 'costo_materiales',
+  'tiene_herramienta', 'costo_herramienta', 'tecnico_recibe_total', 'porcentaje_tecnico_override',
+  'tecnico_id', 'efectivo_entregado', 'empresa_debe_tecnico', 'fecha'];
+const CAMPOS_NUMERICOS = new Set(['valor', 'costo_materiales', 'costo_herramienta', 'porcentaje_tecnico_override']);
+const CAMPOS_BOOLEANOS = new Set(['tiene_materiales', 'tiene_herramienta', 'tecnico_recibe_total', 'efectivo_entregado', 'empresa_debe_tecnico']);
+
+const campoCambio = (actual, nuevo, campo) => {
+  if (CAMPOS_NUMERICOS.has(campo)) {
+    const a = (actual === null || actual === undefined || actual === '') ? null : parseFloat(actual);
+    const n = (nuevo  === null || nuevo  === undefined || nuevo  === '') ? null : parseFloat(nuevo);
+    return a !== n;
+  }
+  if (CAMPOS_BOOLEANOS.has(campo)) return !!actual !== !!nuevo;
+  return String(actual ?? '') !== String(nuevo ?? '');
+};
+
+const requiereRecalculo = (servicio, body) =>
+  CAMPOS_RECALCULO.some(c => (c in body) && campoCambio(servicio[c], body[c], c));
+
+// Revierte pago/deuda/garantía del servicio y los vuelve a calcular con los datos nuevos.
+// Solo para admins corrigiendo un servicio ya completado/cerrado.
+const recalcularServicioLiquidado = async (servicio, body, empresa_id, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const garantiaActual = await Garantia.findOne({ where: { servicio_id: servicio.id }, transaction: t });
+    if (garantiaActual && [ESTADO_GARANTIA.RECLAMADA, ESTADO_GARANTIA.RESUELTA].includes(garantiaActual.estado)) {
+      await t.rollback();
+      return err(res, 'Este servicio ya tiene una garantía reclamada o resuelta — no se puede recalcular automáticamente. Si necesitas corregirlo, elimina el servicio.');
+    }
+
+    const datosParaValidar = { ...servicio.toJSON(), ...body };
+    if (datosParaValidar.valor && (datosParaValidar.tiene_materiales || datosParaValidar.tiene_herramienta)) {
+      const v = validarCostos(datosParaValidar);
+      if (!v.valido) { await t.rollback(); return err(res, v.mensaje); }
+    }
+
+    const efectivo_ya_entregado = body.efectivo_entregado ?? servicio.efectivo_entregado;
+
+    await revertirEfectosFinancieros(servicio.id, t);
+    await servicio.update(body, { transaction: t });
+
+    const tipoServicio = await TipoServicio.findByPk(servicio.tipo_servicio_id, { transaction: t });
+    const empresa       = await Empresa.findByPk(empresa_id, { transaction: t });
+    servicio.tipo_servicio = tipoServicio;
+    servicio.empresa       = empresa;
+
+    const extra = await completarServicioTx(servicio, empresa, t, { efectivo_ya_entregado: !!efectivo_ya_entregado });
+
+    await t.commit();
+    return ok(res, { servicio, ...extra });
+  } catch (e) {
+    await t.rollback();
+    return serverErr(res, e);
+  }
+};
+
 // ─── ACTUALIZAR ───────────────────────────────────────────────────────────────
 const actualizar = async (req, res) => {
   try {
     const empresa_id = req.usuario.empresa_id;
+    const esAdmin = [ROLES.SUPERADMIN, ROLES.ADMIN].includes(req.usuario.rol);
     const servicio = await Servicio.findOne({ where: { id: req.params.id, empresa_id } });
     if (!servicio) return err(res, 'Servicio no encontrado', 404);
 
+    delete req.body.estado;
+
     if (ESTADOS_FINANCIERO_BLOQUEADO.has(servicio.estado)) {
+      if (esAdmin) {
+        if (requiereRecalculo(servicio, req.body)) {
+          return await recalcularServicioLiquidado(servicio, req.body, empresa_id, res);
+        }
+        await servicio.update(req.body);
+        return ok(res, servicio);
+      }
       bloquearCamposFinancieros(req.body);
       if (servicio.estado === ESTADO_SERVICIO.CERRADO) {
         delete req.body.tecnico_id;
@@ -224,6 +292,30 @@ const actualizar = async (req, res) => {
     await servicio.update(req.body);
     return ok(res, servicio);
   } catch (e) { return serverErr(res, e); }
+};
+
+// ─── ELIMINAR (solo admin) ────────────────────────────────────────────────────
+// Borra el servicio y revierte todo lo que haya generado: pago al técnico,
+// deuda + saldo del técnico, y garantía. Pensado para servicios mal registrados.
+const eliminar = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const empresa_id = req.usuario.empresa_id;
+    const servicio = await Servicio.findOne({ where: { id: req.params.id, empresa_id }, transaction: t });
+    if (!servicio) { await t.rollback(); return err(res, 'Servicio no encontrado', 404); }
+
+    await revertirEfectosFinancieros(servicio.id, t);
+    await Servicio.update({ servicio_padre_id: null }, { where: { servicio_padre_id: servicio.id }, transaction: t });
+    await Documento.destroy({ where: { servicio_id: servicio.id }, transaction: t });
+    await AjusteContable.destroy({ where: { servicio_id: servicio.id }, transaction: t });
+    await servicio.destroy({ transaction: t });
+
+    await t.commit();
+    return ok(res, { eliminado: true });
+  } catch (e) {
+    await t.rollback();
+    return serverErr(res, e);
+  }
 };
 
 // ─── COMPLETAR ────────────────────────────────────────────────────────────────
@@ -344,4 +436,4 @@ const convertir = async (req, res) => {
 };
 
 
-module.exports = { listar, obtener, crear, actualizar, completar, convertir, cancelar };
+module.exports = { listar, obtener, crear, actualizar, completar, convertir, cancelar, eliminar };
