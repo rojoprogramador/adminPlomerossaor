@@ -109,7 +109,8 @@ const simulateSalary = async (req, res) => {
       porcentaje_prestacional = 0,
       trabajos_diarios_proyectados = 3,
       dias_laborales_proyectados = 24,
-      valor_promedio_proyectado = 100000
+      valor_promedio_proyectado = 100000,
+      gasto_promedio_proyectado = 0
     } = req.body; 
     // mes_anio en formato 'YYYY-MM'
 
@@ -134,14 +135,20 @@ const simulateSalary = async (req, res) => {
     const tecnico = await Tecnico.findByPk(tecnico_id);
 
     let comisionTotal = 0;
-    let ingresosTotalesEmpresa = 0;
+    let ingresosTotalesEmpresa = 0; // Utilidad neta (valor bruto - gastos)
+    let gastosTotalesHistoricos = 0;
+    let valorBrutoHistorico = 0;
 
     // Calculamos lo que ganó el técnico en ese periodo
     servicios.forEach(s => {
-      let valorNeto = parseFloat(s.valor || 0);
-      if (s.tiene_materiales) valorNeto -= parseFloat(s.costo_materiales || 0);
-      if (s.tiene_herramienta) valorNeto -= parseFloat(s.costo_herramienta || 0);
+      let valorBruto = parseFloat(s.valor || 0);
+      let gastos = 0;
+      if (s.tiene_materiales) gastos += parseFloat(s.costo_materiales || 0);
+      if (s.tiene_herramienta) gastos += parseFloat(s.costo_herramienta || 0);
 
+      let valorNeto = valorBruto - gastos;
+      valorBrutoHistorico += valorBruto;
+      gastosTotalesHistoricos += gastos;
       ingresosTotalesEmpresa += valorNeto;
 
       if (s.tecnico_recibe_total) {
@@ -155,7 +162,8 @@ const simulateSalary = async (req, res) => {
     });
     const diasTrabajados = new Set(servicios.map(s => s.fecha)).size || 1; // Para evitar division por cero
     const trabajosPromedioDia = servicios.length / diasTrabajados;
-    const valorPromedioTrabajo = servicios.length > 0 ? (ingresosTotalesEmpresa / servicios.length) : 0;
+    const valorPromedioTrabajo = servicios.length > 0 ? (valorBrutoHistorico / servicios.length) : 0;
+    const gastoPromedioTrabajo = servicios.length > 0 ? (gastosTotalesHistoricos / servicios.length) : 0;
 
     // Calcular la utilidad real histórica para la empresa
     const utilidadHistoricaEmpresa = ingresosTotalesEmpresa - comisionTotal;
@@ -164,7 +172,9 @@ const simulateSalary = async (req, res) => {
     const costoRealSalario = parseFloat(salario_fijo_propuesto) * (1 + (parseFloat(porcentaje_prestacional) / 100));
 
     // Calcular proyecciones
-    const ingresosTotalesProyectados = trabajos_diarios_proyectados * dias_laborales_proyectados * valor_promedio_proyectado;
+    const ingresosNetosProyectadosPorTrabajo = Math.max(0, parseFloat(valor_promedio_proyectado) - parseFloat(gasto_promedio_proyectado));
+    const ingresosTotalesProyectados = trabajos_diarios_proyectados * dias_laborales_proyectados * ingresosNetosProyectadosPorTrabajo;
+    const gastosTotalesProyectados = trabajos_diarios_proyectados * dias_laborales_proyectados * parseFloat(gasto_promedio_proyectado);
     const utilidadProyectadaEmpresa = ingresosTotalesProyectados - costoRealSalario;
 
     // Comparativa final
@@ -179,6 +189,7 @@ const simulateSalary = async (req, res) => {
       dias_trabajados: diasTrabajados,
       trabajos_promedio_dia: trabajosPromedioDia,
       valor_promedio_trabajo: valorPromedioTrabajo,
+      gasto_promedio_trabajo: gastoPromedioTrabajo,
       ingresos_generados_netos: ingresosTotalesEmpresa,
       comision_pagada_historica: comisionTotal,
       utilidad_historica_empresa: utilidadHistoricaEmpresa,
@@ -187,7 +198,10 @@ const simulateSalary = async (req, res) => {
       trabajos_diarios_proyectados: parseFloat(trabajos_diarios_proyectados),
       dias_laborales_proyectados: parseInt(dias_laborales_proyectados),
       valor_promedio_proyectado: parseFloat(valor_promedio_proyectado),
-      ingresos_totales_proyectados: ingresosTotalesProyectados,
+      gasto_promedio_proyectado: parseFloat(gasto_promedio_proyectado),
+      ingresos_totales_proyectados: ingresosTotalesProyectados + gastosTotalesProyectados, // Bruto proyectado
+      ingresos_netos_proyectados: ingresosTotalesProyectados, // Netos proyectados (Bruto - gastos)
+      gastos_totales_proyectados: gastosTotalesProyectados,
       salario_fijo_propuesto: parseFloat(salario_fijo_propuesto),
       porcentaje_prestacional: parseFloat(porcentaje_prestacional),
       costo_real_salario: costoRealSalario,
