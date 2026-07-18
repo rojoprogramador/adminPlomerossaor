@@ -156,8 +156,9 @@ export default function SalarySimulatorModal({ isOpen, onClose }: SalarySimulato
                 </p>
               </div>
 
-              <div className="text-xs text-slate-400 text-center">
-                Basado en {result.total_trabajos} trabajos realizados en {result.periodo}. Ingresos netos para la empresa (sin materiales): ${result.ingresos_generados_netos.toLocaleString()}
+              <div className="text-xs text-slate-500 text-center flex flex-col gap-1">
+                <span>Basado en {result.total_trabajos} trabajos realizados en {result.dias_trabajados} días de {result.periodo}. Ingresos netos para la empresa (sin materiales): ${result.ingresos_generados_netos.toLocaleString()}</span>
+                <span>Promedio del técnico en este mes: <strong>{result.trabajos_promedio_dia.toFixed(1)} trabajos al día</strong>, cobrando en promedio <strong>${result.valor_promedio_trabajo.toLocaleString(undefined, {maximumFractionDigits: 0})}</strong> por trabajo.</span>
               </div>
             </div>
           )}

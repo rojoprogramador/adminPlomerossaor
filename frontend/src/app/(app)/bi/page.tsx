@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
-  LineChart, Line
+  LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
 import { TrendingUp, Users, DollarSign, Briefcase, Calculator, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import SalarySimulatorModal from './SalarySimulatorModal';
@@ -40,9 +40,17 @@ export default function BIPage() {
     }
   });
 
+  const { data: serviceTypesData, isLoading: loadServiceTypes } = useQuery({
+    queryKey: ['bi-service-types'],
+    queryFn: async () => {
+      const { data } = await api.get('/bi/service-types');
+      return data;
+    }
+  });
+
   if (!user || (user.rol !== 'admin' && user.rol !== 'superadmin')) return null;
 
-  if (loadDaily || loadMonthly) {
+  if (loadDaily || loadMonthly || loadServiceTypes) {
     return <div className="p-8 text-center text-slate-500 animate-pulse">Cargando métricas de inteligencia de negocio...</div>;
   }
 
@@ -59,6 +67,14 @@ export default function BIPage() {
     Trabajos: parseInt(d.total_trabajos),
     Visitas: parseInt(d.total_visitas),
     Ingresos: parseFloat(d.ingresos_totales)
+  })) || [];
+
+  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+  const pieData = serviceTypesData?.serviceTypes?.map((s: any) => ({
+    name: s.tipo_servicio?.nombre || 'Desconocido',
+    value: parseInt(s.cantidad),
+    ingresos: parseFloat(s.ingresos_totales),
+    promedio: parseFloat(s.valor_promedio)
   })) || [];
 
   // Calcular crecimiento vs mes anterior
@@ -188,6 +204,60 @@ export default function BIPage() {
                 <Line yAxisId="right" type="monotone" dataKey="Ingresos" stroke="#10b981" strokeWidth={3} dot={false} activeDot={{r: 6}} />
               </LineChart>
             </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* Desglose por Tipo de Servicio */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 mt-6">
+        <h2 className="text-lg font-semibold text-slate-800 mb-6">Distribución por Tipo de Servicio</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+          <div className="h-80 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={80}
+                  outerRadius={120}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {pieData.map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <RechartsTooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+                <Legend layout="vertical" verticalAlign="middle" align="right" />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="text-xs text-slate-500 uppercase bg-slate-50">
+                <tr>
+                  <th className="px-4 py-3 rounded-tl-lg">Tipo de Servicio</th>
+                  <th className="px-4 py-3 text-center">Cantidad</th>
+                  <th className="px-4 py-3 text-right">Valor Promedio</th>
+                  <th className="px-4 py-3 text-right rounded-tr-lg">Total Ingresos</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pieData.map((item: any, i: number) => (
+                  <tr key={i} className="border-b border-slate-50 last:border-0">
+                    <td className="px-4 py-3 font-medium text-slate-800 flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{backgroundColor: COLORS[i % COLORS.length]}}></div>
+                      {item.name}
+                    </td>
+                    <td className="px-4 py-3 text-center text-slate-600">{item.value}</td>
+                    <td className="px-4 py-3 text-right text-slate-600">${item.promedio.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-slate-800">${item.ingresos.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

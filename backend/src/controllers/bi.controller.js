@@ -1,4 +1,4 @@
-const { sequelize, Servicio, Tecnico } = require('../models');
+const { sequelize, Servicio, Tecnico, TipoServicio } = require('../models');
 const { Op } = require('sequelize');
 
 // Obtener estadísticas diarias: número de trabajos y visitas por día, y agrupado por técnico
@@ -73,6 +73,31 @@ const getMonthlyStats = async (req, res) => {
   }
 };
 
+// Obtener estadísticas por tipo de servicio
+const getServiceTypeStats = async (req, res) => {
+  try {
+    const { empresa_id } = req.usuario;
+
+    const stats = await Servicio.findAll({
+      where: { empresa_id, es_visita: false },
+      attributes: [
+        'tipo_servicio_id',
+        [sequelize.fn('COUNT', sequelize.col('Servicio.id')), 'cantidad'],
+        [sequelize.fn('SUM', sequelize.col('valor')), 'ingresos_totales'],
+        [sequelize.fn('AVG', sequelize.col('valor')), 'valor_promedio']
+      ],
+      include: [{ model: TipoServicio, as: 'tipo_servicio', attributes: ['nombre'] }],
+      group: ['tipo_servicio_id', 'tipo_servicio.id'],
+      order: [[sequelize.fn('COUNT', sequelize.col('Servicio.id')), 'DESC']]
+    });
+
+    res.json({ serviceTypes: stats });
+  } catch (error) {
+    console.error('Error en getServiceTypeStats:', error);
+    res.status(500).json({ error: 'Error al obtener estadísticas por tipo de servicio' });
+  }
+};
+
 // Simulador de Salario Fijo vs Porcentaje
 const simulateSalary = async (req, res) => {
   try {
@@ -124,10 +149,18 @@ const simulateSalary = async (req, res) => {
     const diferencia = comisionTotal - parseFloat(salario_fijo_propuesto);
     const convieneFijo = diferencia > 0; // Si la comision que le pagas es mayor al sueldo fijo, conviene fijo.
 
+    // Calcular dias trabajados unicos
+    const diasTrabajados = new Set(servicios.map(s => s.fecha)).size || 1; // Para evitar division por cero
+    const trabajosPromedioDia = servicios.length / diasTrabajados;
+    const valorPromedioTrabajo = servicios.length > 0 ? (ingresosTotalesEmpresa / servicios.length) : 0;
+
     res.json({
       tecnico: tecnico.nombre,
       periodo: mes_anio,
       total_trabajos: servicios.length,
+      dias_trabajados: diasTrabajados,
+      trabajos_promedio_dia: trabajosPromedioDia,
+      valor_promedio_trabajo: valorPromedioTrabajo,
       ingresos_generados_netos: ingresosTotalesEmpresa,
       comision_pagada_historica: comisionTotal,
       salario_fijo_propuesto: parseFloat(salario_fijo_propuesto),
@@ -144,5 +177,6 @@ const simulateSalary = async (req, res) => {
 module.exports = {
   getDailyStats,
   getMonthlyStats,
+  getServiceTypeStats,
   simulateSalary
 };
