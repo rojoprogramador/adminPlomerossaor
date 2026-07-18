@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 
 const navAdmin = [
   { href: '/dashboard',      label: 'Dashboard',         icon: LayoutDashboard },
+  { href: '/bi',             label: 'Inteligencia Negocio', icon: ClipboardList },
   { href: '/servicios',      label: 'Servicios',          icon: Wrench },
   { href: '/garantias',      label: 'Garantías',          icon: Shield },
   { href: '/deudas',         label: 'Deudas',             icon: Banknote },
@@ -19,6 +20,7 @@ const navAdmin = [
   { href: '/carga-masiva',   label: 'Carga Masiva',       icon: Upload },
   { href: '/gastos',         label: 'Gastos',             icon: TrendingDown },
 ];
+
 
 const navAgente = [
   { href: '/servicios',    label: 'Servicios',   icon: Wrench },

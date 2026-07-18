@@ -18,5 +18,6 @@ router.use('/tipos-servicio', require('./tipos-servicio.routes'));
 router.use('/reportes',       require('./reportes.routes'));
 router.use('/gastos',         require('./gastos.routes'));
 router.use('/ajustes',        require('./ajustes.routes'));
+router.use('/bi',             require('./bi.routes'));
 
 module.exports = router;
