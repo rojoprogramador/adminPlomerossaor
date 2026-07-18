@@ -79,7 +79,7 @@ export default function SalarySimulatorModal({ isOpen, onClose }: SalarySimulato
                 required
               >
                 <option value="">Seleccione...</option>
-                {tecnicosData?.data?.map((t: any) => (
+                {Array.isArray(tecnicosData) && tecnicosData.map((t: any) => (
                   <option key={t.id} value={t.id}>{t.nombre}</option>
                 ))}
               </select>

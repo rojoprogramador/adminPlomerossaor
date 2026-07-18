@@ -9,7 +9,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
   LineChart, Line
 } from 'recharts';
-import { TrendingUp, Users, DollarSign, Briefcase, Calculator } from 'lucide-react';
+import { TrendingUp, Users, DollarSign, Briefcase, Calculator, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import SalarySimulatorModal from './SalarySimulatorModal';
 
 export default function BIPage() {
@@ -61,6 +61,24 @@ export default function BIPage() {
     Ingresos: parseFloat(d.ingresos_totales)
   })) || [];
 
+  // Calcular crecimiento vs mes anterior
+  let crecimientoTrabajos = 0;
+  let crecimientoIngresos = 0;
+  let tieneComparativo = false;
+
+  if (monthlyData.length >= 2) {
+    tieneComparativo = true;
+    const ultimoMes = monthlyData[monthlyData.length - 1];
+    const mesAnterior = monthlyData[monthlyData.length - 2];
+    
+    if (mesAnterior.Trabajos > 0) {
+      crecimientoTrabajos = ((ultimoMes.Trabajos - mesAnterior.Trabajos) / mesAnterior.Trabajos) * 100;
+    }
+    if (mesAnterior.Ingresos > 0) {
+      crecimientoIngresos = ((ultimoMes.Ingresos - mesAnterior.Ingresos) / mesAnterior.Ingresos) * 100;
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       <div className="flex justify-between items-end">
@@ -79,7 +97,7 @@ export default function BIPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-start gap-4 hover:shadow-md transition-shadow">
           <div className="p-3 bg-blue-50 text-blue-600 rounded-lg"><Briefcase size={24} /></div>
           <div>
@@ -106,6 +124,31 @@ export default function BIPage() {
               ${monthlyData.length > 0 ? monthlyData[monthlyData.length - 1].Ingresos.toLocaleString() : 0}
             </h3>
           </div>
+        </div>
+        
+        {/* Tarjeta de Comparativo Mensual */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex flex-col justify-center gap-2 hover:shadow-md transition-shadow">
+          <p className="text-sm font-medium text-slate-500">Comparativo vs Mes Anterior</p>
+          {tieneComparativo ? (
+            <div className="flex flex-col gap-2 mt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600">Trabajos:</span>
+                <span className={`flex items-center text-sm font-bold ${crecimientoTrabajos >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                  {crecimientoTrabajos >= 0 ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+                  {Math.abs(crecimientoTrabajos).toFixed(1)}%
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600">Ingresos:</span>
+                <span className={`flex items-center text-sm font-bold ${crecimientoIngresos >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                  {crecimientoIngresos >= 0 ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+                  {Math.abs(crecimientoIngresos).toFixed(1)}%
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400 mt-2">No hay suficientes datos históricos.</p>
+          )}
         </div>
       </div>
 
