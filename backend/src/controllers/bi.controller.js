@@ -129,7 +129,7 @@ const simulateSalary = async (req, res) => {
         tecnico_id,
         fecha: { [Op.between]: [startDate, endDate] }
       },
-      attributes: ['id', 'valor', 'tiene_materiales', 'costo_materiales', 'tiene_herramienta', 'costo_herramienta', 'es_visita', 'tecnico_recibe_total', 'porcentaje_tecnico_override']
+      attributes: ['id', 'fecha', 'valor', 'tiene_materiales', 'costo_materiales', 'tiene_herramienta', 'costo_herramienta', 'es_visita', 'tecnico_recibe_total', 'porcentaje_tecnico_override']
     });
 
     const tecnico = await Tecnico.findByPk(tecnico_id);
