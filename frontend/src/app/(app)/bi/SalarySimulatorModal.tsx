@@ -16,6 +16,7 @@ export default function SalarySimulatorModal({ isOpen, onClose }: SalarySimulato
   const [tecnicoId, setTecnicoId] = useState('');
   const [mesAnio, setMesAnio] = useState(format(new Date(), 'yyyy-MM'));
   const [salarioFijo, setSalarioFijo] = useState('');
+  const [porcentajePrestacional, setPorcentajePrestacional] = useState('65.5');
   
   // Proyecciones
   const [trabajosProyectados, setTrabajosProyectados] = useState('3');
@@ -49,6 +50,7 @@ export default function SalarySimulatorModal({ isOpen, onClose }: SalarySimulato
       tecnico_id: tecnicoId,
       mes_anio: mesAnio,
       salario_fijo_propuesto: parseFloat(salarioFijo),
+      porcentaje_prestacional: parseFloat(porcentajePrestacional),
       trabajos_diarios_proyectados: parseFloat(trabajosProyectados),
       dias_laborales_proyectados: parseInt(diasProyectados),
       valor_promedio_proyectado: parseFloat(valorPromedioProyectado)
@@ -103,13 +105,28 @@ export default function SalarySimulatorModal({ isOpen, onClose }: SalarySimulato
                   required
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Salario Fijo Propuesto ($)</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Salario Fijo Base ($)</label>
                 <input 
                   type="number" 
                   value={salarioFijo}
                   onChange={e => setSalarioFijo(e.target.value)}
-                  placeholder="Ej. 1500000"
+                  placeholder="Ej. 1750905"
+                  className="w-full text-sm rounded-lg border-slate-200 focus:border-indigo-500 focus:ring-indigo-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Carga Prestacional y Seguridad Social (%)</label>
+                <input 
+                  type="number" 
+                  step="0.1"
+                  value={porcentajePrestacional}
+                  onChange={e => setPorcentajePrestacional(e.target.value)}
+                  placeholder="Ej. 65.5"
                   className="w-full text-sm rounded-lg border-slate-200 focus:border-indigo-500 focus:ring-indigo-500"
                   required
                 />
@@ -174,15 +191,19 @@ export default function SalarySimulatorModal({ isOpen, onClose }: SalarySimulato
           {result && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 flex flex-col justify-center">
                   <p className="text-xs font-medium text-slate-500 mb-1">Utilidad Histórica (A porcentaje)</p>
                   <p className="text-xl font-bold text-slate-800">${result.utilidad_historica_empresa.toLocaleString()}</p>
-                  <p className="text-[10px] text-slate-400 mt-1">Ingresos: ${result.ingresos_generados_netos.toLocaleString()} - Comisión: ${result.comision_pagada_historica.toLocaleString()}</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Ingresos: ${result.ingresos_generados_netos.toLocaleString()} <br/> Comisión: ${result.comision_pagada_historica.toLocaleString()}</p>
                 </div>
-                <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
+                <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100 flex flex-col justify-center">
                   <p className="text-xs font-medium text-indigo-600 mb-1">Utilidad Proyectada (A salario fijo)</p>
                   <p className="text-xl font-bold text-indigo-900">${result.utilidad_proyectada_empresa.toLocaleString()}</p>
-                  <p className="text-[10px] text-indigo-500 mt-1">Ingresos: ${result.ingresos_totales_proyectados.toLocaleString()} - Salario: ${result.salario_fijo_propuesto.toLocaleString()}</p>
+                  <p className="text-[10px] text-indigo-500 mt-1">
+                    Ingresos: ${result.ingresos_totales_proyectados.toLocaleString()} <br/> 
+                    Costo Laboral Real: ${result.costo_real_salario.toLocaleString()} <br/>
+                    (Salario: ${result.salario_fijo_propuesto.toLocaleString()} + {result.porcentaje_prestacional}% prestaciones)
+                  </p>
                 </div>
               </div>
 

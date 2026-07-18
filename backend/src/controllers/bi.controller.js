@@ -106,6 +106,7 @@ const simulateSalary = async (req, res) => {
       tecnico_id, 
       mes_anio, 
       salario_fijo_propuesto,
+      porcentaje_prestacional = 0,
       trabajos_diarios_proyectados = 3,
       dias_laborales_proyectados = 24,
       valor_promedio_proyectado = 100000
@@ -159,9 +160,12 @@ const simulateSalary = async (req, res) => {
     // Calcular la utilidad real histórica para la empresa
     const utilidadHistoricaEmpresa = ingresosTotalesEmpresa - comisionTotal;
 
+    // Calcular el costo real del empleado incluyendo prestaciones
+    const costoRealSalario = parseFloat(salario_fijo_propuesto) * (1 + (parseFloat(porcentaje_prestacional) / 100));
+
     // Calcular proyecciones
     const ingresosTotalesProyectados = trabajos_diarios_proyectados * dias_laborales_proyectados * valor_promedio_proyectado;
-    const utilidadProyectadaEmpresa = ingresosTotalesProyectados - parseFloat(salario_fijo_propuesto);
+    const utilidadProyectadaEmpresa = ingresosTotalesProyectados - costoRealSalario;
 
     // Comparativa final
     const diferenciaUtilidad = utilidadProyectadaEmpresa - utilidadHistoricaEmpresa;
@@ -185,6 +189,8 @@ const simulateSalary = async (req, res) => {
       valor_promedio_proyectado: parseFloat(valor_promedio_proyectado),
       ingresos_totales_proyectados: ingresosTotalesProyectados,
       salario_fijo_propuesto: parseFloat(salario_fijo_propuesto),
+      porcentaje_prestacional: parseFloat(porcentaje_prestacional),
+      costo_real_salario: costoRealSalario,
       utilidad_proyectada_empresa: utilidadProyectadaEmpresa,
       
       // Veredicto
