@@ -16,6 +16,11 @@ export default function SalarySimulatorModal({ isOpen, onClose }: SalarySimulato
   const [tecnicoId, setTecnicoId] = useState('');
   const [mesAnio, setMesAnio] = useState(format(new Date(), 'yyyy-MM'));
   const [salarioFijo, setSalarioFijo] = useState('');
+  
+  // Proyecciones
+  const [trabajosProyectados, setTrabajosProyectados] = useState('3');
+  const [diasProyectados, setDiasProyectados] = useState('24');
+  const [valorPromedioProyectado, setValorPromedioProyectado] = useState('100000');
 
   // Fetch tecnicos
   const { data: tecnicosData } = useQuery({
@@ -43,7 +48,10 @@ export default function SalarySimulatorModal({ isOpen, onClose }: SalarySimulato
     simulateMutation.mutate({
       tecnico_id: tecnicoId,
       mes_anio: mesAnio,
-      salario_fijo_propuesto: parseFloat(salarioFijo)
+      salario_fijo_propuesto: parseFloat(salarioFijo),
+      trabajos_diarios_proyectados: parseFloat(trabajosProyectados),
+      dias_laborales_proyectados: parseInt(diasProyectados),
+      valor_promedio_proyectado: parseFloat(valorPromedioProyectado)
     });
   };
 
@@ -69,43 +77,83 @@ export default function SalarySimulatorModal({ isOpen, onClose }: SalarySimulato
             Calcula si es más rentable para la empresa pagarle un salario fijo a un técnico en base a lo que se le pagó en comisiones en un mes específico.
           </p>
 
-          <form onSubmit={handleSimulate} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Técnico</label>
-              <select 
-                value={tecnicoId} 
-                onChange={e => setTecnicoId(e.target.value)}
-                className="w-full text-sm rounded-lg border-slate-200 focus:border-indigo-500 focus:ring-indigo-500"
-                required
-              >
-                <option value="">Seleccione...</option>
-                {Array.isArray(tecnicosData) && tecnicosData.map((t: any) => (
-                  <option key={t.id} value={t.id}>{t.nombre}</option>
-                ))}
-              </select>
+          <form onSubmit={handleSimulate} className="mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Técnico (Histórico)</label>
+                <select 
+                  value={tecnicoId} 
+                  onChange={e => setTecnicoId(e.target.value)}
+                  className="w-full text-sm rounded-lg border-slate-200 focus:border-indigo-500 focus:ring-indigo-500"
+                  required
+                >
+                  <option value="">Seleccione...</option>
+                  {Array.isArray(tecnicosData) && tecnicosData.map((t: any) => (
+                    <option key={t.id} value={t.id}>{t.nombre}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Mes a analizar</label>
+                <input 
+                  type="month" 
+                  value={mesAnio}
+                  onChange={e => setMesAnio(e.target.value)}
+                  className="w-full text-sm rounded-lg border-slate-200 focus:border-indigo-500 focus:ring-indigo-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Salario Fijo Propuesto ($)</label>
+                <input 
+                  type="number" 
+                  value={salarioFijo}
+                  onChange={e => setSalarioFijo(e.target.value)}
+                  placeholder="Ej. 1500000"
+                  className="w-full text-sm rounded-lg border-slate-200 focus:border-indigo-500 focus:ring-indigo-500"
+                  required
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Mes a analizar</label>
-              <input 
-                type="month" 
-                value={mesAnio}
-                onChange={e => setMesAnio(e.target.value)}
-                className="w-full text-sm rounded-lg border-slate-200 focus:border-indigo-500 focus:ring-indigo-500"
-                required
-              />
+
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-3">
+                <h3 className="text-sm font-semibold text-slate-800">Proyección si fuera empleado (Horario Completo)</h3>
+                <p className="text-xs text-slate-500 mb-2">Estima cuánto produciría este técnico si tuviera que cumplir un horario y una cuota mínima.</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Trabajos por día</label>
+                <input 
+                  type="number" 
+                  value={trabajosProyectados}
+                  onChange={e => setTrabajosProyectados(e.target.value)}
+                  className="w-full text-sm rounded-lg border-slate-200"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Días laborales al mes</label>
+                <input 
+                  type="number" 
+                  value={diasProyectados}
+                  onChange={e => setDiasProyectados(e.target.value)}
+                  className="w-full text-sm rounded-lg border-slate-200"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Valor promedio trabajo ($)</label>
+                <input 
+                  type="number" 
+                  value={valorPromedioProyectado}
+                  onChange={e => setValorPromedioProyectado(e.target.value)}
+                  className="w-full text-sm rounded-lg border-slate-200"
+                  required
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Salario Fijo Propuesto ($)</label>
-              <input 
-                type="number" 
-                value={salarioFijo}
-                onChange={e => setSalarioFijo(e.target.value)}
-                placeholder="Ej. 1500000"
-                className="w-full text-sm rounded-lg border-slate-200 focus:border-indigo-500 focus:ring-indigo-500"
-                required
-              />
-            </div>
-            <div className="md:col-span-3 flex justify-end mt-2">
+
+            <div className="flex justify-end mt-4">
               <button 
                 type="submit" 
                 disabled={simulateMutation.isPending}
@@ -127,12 +175,14 @@ export default function SalarySimulatorModal({ isOpen, onClose }: SalarySimulato
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                  <p className="text-xs font-medium text-slate-500 mb-1">Comisión Histórica Pagada</p>
-                  <p className="text-xl font-bold text-slate-800">${result.comision_pagada_historica.toLocaleString()}</p>
+                  <p className="text-xs font-medium text-slate-500 mb-1">Utilidad Histórica (A porcentaje)</p>
+                  <p className="text-xl font-bold text-slate-800">${result.utilidad_historica_empresa.toLocaleString()}</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Ingresos: ${result.ingresos_generados_netos.toLocaleString()} - Comisión: ${result.comision_pagada_historica.toLocaleString()}</p>
                 </div>
-                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                  <p className="text-xs font-medium text-slate-500 mb-1">Salario Fijo Propuesto</p>
-                  <p className="text-xl font-bold text-slate-800">${result.salario_fijo_propuesto.toLocaleString()}</p>
+                <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
+                  <p className="text-xs font-medium text-indigo-600 mb-1">Utilidad Proyectada (A salario fijo)</p>
+                  <p className="text-xl font-bold text-indigo-900">${result.utilidad_proyectada_empresa.toLocaleString()}</p>
+                  <p className="text-[10px] text-indigo-500 mt-1">Ingresos: ${result.ingresos_totales_proyectados.toLocaleString()} - Salario: ${result.salario_fijo_propuesto.toLocaleString()}</p>
                 </div>
               </div>
 
@@ -149,16 +199,17 @@ export default function SalarySimulatorModal({ isOpen, onClose }: SalarySimulato
                 </div>
                 <p className={`text-sm ${result.conviene_fijo ? 'text-emerald-700' : 'text-red-700'}`}>
                   {result.conviene_fijo ? (
-                    <>Al pasar a este técnico a salario fijo, la empresa se ahorraría y ganaría <strong>${result.diferencia_a_favor_empresa.toLocaleString()}</strong> mensuales asumiendo el mismo nivel de trabajo.</>
+                    <>Al pasar a este técnico a salario fijo y cumplir la cuota proyectada, la empresa generaría <strong>${result.diferencia_a_favor_empresa.toLocaleString()}</strong> adicionales en comparación con su desempeño histórico real.</>
                   ) : (
-                    <>El técnico no genera suficientes comisiones para cubrir el salario fijo. La empresa perdería <strong>${Math.abs(result.diferencia_a_favor_empresa).toLocaleString()}</strong> mensuales.</>
+                    <>Incluso con la proyección, la utilidad histórica a porcentaje fue mayor. Pasar a salario fijo representaría perder <strong>${Math.abs(result.diferencia_a_favor_empresa).toLocaleString()}</strong> mensuales.</>
                   )}
                 </p>
               </div>
 
-              <div className="text-xs text-slate-500 text-center flex flex-col gap-1">
-                <span>Basado en {result.total_trabajos} trabajos realizados en {result.dias_trabajados} días de {result.periodo}. Ingresos netos para la empresa (sin materiales): ${result.ingresos_generados_netos.toLocaleString()}</span>
-                <span>Promedio del técnico en este mes: <strong>{result.trabajos_promedio_dia.toFixed(1)} trabajos al día</strong>, cobrando en promedio <strong>${result.valor_promedio_trabajo.toLocaleString(undefined, {maximumFractionDigits: 0})}</strong> por trabajo.</span>
+              <div className="text-xs text-slate-500 text-center flex flex-col gap-1 p-3 bg-slate-50 rounded-lg">
+                <span className="font-semibold text-slate-700 mb-1">Comparativa de Desempeño:</span>
+                <span><strong>Desempeño Histórico Real:</strong> Hizo {result.total_trabajos} trabajos en {result.dias_trabajados} días ({result.trabajos_promedio_dia.toFixed(1)} al día). Valor prom. cobrado: ${result.valor_promedio_trabajo.toLocaleString(undefined, {maximumFractionDigits: 0})}.</span>
+                <span><strong>Desempeño Exigido (Proyectado):</strong> Haría {result.trabajos_diarios_proyectados * result.dias_laborales_proyectados} trabajos en {result.dias_laborales_proyectados} días ({result.trabajos_diarios_proyectados} al día). Valor prom. esperado: ${result.valor_promedio_proyectado.toLocaleString(undefined, {maximumFractionDigits: 0})}.</span>
               </div>
             </div>
           )}

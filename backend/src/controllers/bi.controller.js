@@ -102,7 +102,14 @@ const getServiceTypeStats = async (req, res) => {
 const simulateSalary = async (req, res) => {
   try {
     const { empresa_id } = req.usuario;
-    const { tecnico_id, mes_anio, salario_fijo_propuesto } = req.body; 
+    const { 
+      tecnico_id, 
+      mes_anio, 
+      salario_fijo_propuesto,
+      trabajos_diarios_proyectados = 3,
+      dias_laborales_proyectados = 24,
+      valor_promedio_proyectado = 100000
+    } = req.body; 
     // mes_anio en formato 'YYYY-MM'
 
     if (!tecnico_id || !mes_anio || !salario_fijo_propuesto) {
@@ -145,26 +152,43 @@ const simulateSalary = async (req, res) => {
         comisionTotal += valorNeto * (porcentaje / 100);
       }
     });
-
-    const diferencia = comisionTotal - parseFloat(salario_fijo_propuesto);
-    const convieneFijo = diferencia > 0; // Si la comision que le pagas es mayor al sueldo fijo, conviene fijo.
-
-    // Calcular dias trabajados unicos
     const diasTrabajados = new Set(servicios.map(s => s.fecha)).size || 1; // Para evitar division por cero
     const trabajosPromedioDia = servicios.length / diasTrabajados;
     const valorPromedioTrabajo = servicios.length > 0 ? (ingresosTotalesEmpresa / servicios.length) : 0;
 
+    // Calcular la utilidad real histórica para la empresa
+    const utilidadHistoricaEmpresa = ingresosTotalesEmpresa - comisionTotal;
+
+    // Calcular proyecciones
+    const ingresosTotalesProyectados = trabajos_diarios_proyectados * dias_laborales_proyectados * valor_promedio_proyectado;
+    const utilidadProyectadaEmpresa = ingresosTotalesProyectados - parseFloat(salario_fijo_propuesto);
+
+    // Comparativa final
+    const diferenciaUtilidad = utilidadProyectadaEmpresa - utilidadHistoricaEmpresa;
+    const convieneFijo = diferenciaUtilidad > 0;
+
     res.json({
       tecnico: tecnico.nombre,
       periodo: mes_anio,
+      // Histórico
       total_trabajos: servicios.length,
       dias_trabajados: diasTrabajados,
       trabajos_promedio_dia: trabajosPromedioDia,
       valor_promedio_trabajo: valorPromedioTrabajo,
       ingresos_generados_netos: ingresosTotalesEmpresa,
       comision_pagada_historica: comisionTotal,
+      utilidad_historica_empresa: utilidadHistoricaEmpresa,
+      
+      // Proyección
+      trabajos_diarios_proyectados: parseFloat(trabajos_diarios_proyectados),
+      dias_laborales_proyectados: parseInt(dias_laborales_proyectados),
+      valor_promedio_proyectado: parseFloat(valor_promedio_proyectado),
+      ingresos_totales_proyectados: ingresosTotalesProyectados,
       salario_fijo_propuesto: parseFloat(salario_fijo_propuesto),
-      diferencia_a_favor_empresa: diferencia,
+      utilidad_proyectada_empresa: utilidadProyectadaEmpresa,
+      
+      // Veredicto
+      diferencia_a_favor_empresa: diferenciaUtilidad,
       conviene_fijo: convieneFijo
     });
 
