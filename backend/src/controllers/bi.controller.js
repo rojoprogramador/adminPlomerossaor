@@ -154,9 +154,9 @@ const simulateSalary = async (req, res) => {
       if (s.tecnico_recibe_total) {
         comisionTotal += valorNeto;
       } else {
-        // En la vida real, sacarías el % general de la tabla TipoServicio.
-        // Pero para el simulador, asumiremos un 40% o el override si lo tiene.
-        let porcentaje = s.porcentaje_tecnico_override ? parseFloat(s.porcentaje_tecnico_override) : 40; 
+        let porcentaje = s.porcentaje_tecnico_override 
+          ? parseFloat(s.porcentaje_tecnico_override) 
+          : (tecnico.porcentaje_override ? parseFloat(tecnico.porcentaje_override) : 60); 
         comisionTotal += valorNeto * (porcentaje / 100);
       }
     });
